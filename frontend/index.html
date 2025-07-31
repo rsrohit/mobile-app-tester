@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile App Tester</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* A lighter gray background */
+        }
+        .step-card {
+            transition: all 0.3s ease;
+            border-left-width: 4px;
+        }
+        .step-card.status-pending { border-left-color: #94a3b8; }
+        .step-card.status-running { border-left-color: #3b82f6; }
+        .step-card.status-passed { border-left-color: #22c55e; }
+        .step-card.status-failed { border-left-color: #ef4444; }
+
+        /* Skeleton Loading Animation */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        .skeleton-loader {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
+        <!-- Header -->
+        <header class="mb-10 text-center">
+            <h1 class="text-4xl sm:text-5xl font-bold text-slate-900">Mobile App Tester</h1>
+            <p class="text-lg text-slate-600 mt-3">Automate your APK testing using natural language and AI.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+            <!-- Left Column: Configuration -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
+                <h2 class="text-2xl font-semibold mb-6 border-b border-slate-200 pb-4 text-slate-900">1. Configuration</h2>
+
+                <!-- AI Service Selection -->
+                <div class="mb-6">
+                    <label class="block text-base font-medium text-slate-700 mb-2">Select AI Service</label>
+                    <fieldset class="mt-2 bg-slate-50 p-3 rounded-lg">
+                        <div class="flex items-center justify-around">
+                            <div class="flex items-center">
+                                <input id="gemini-radio" name="ai-service" type="radio" value="gemini" checked class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                <label for="gemini-radio" class="ml-2 block text-sm font-medium text-slate-700">Gemini</label>
+                            </div>
+                            <div class="flex items-center">
+                                <input id="deepseek-radio" name="ai-service" type="radio" value="deepseek" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                <label for="deepseek-radio" class="ml-2 block text-sm font-medium text-slate-700">Deepseek</label>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+
+                <!-- APK File Upload -->
+                <div class="mb-6">
+                    <label for="apk-file-input" class="block text-base font-medium text-slate-700 mb-2">Upload .apk File</label>
+                    <div id="apk-dropzone" class="flex justify-center items-center w-full h-40 px-6 py-10 border-2 border-slate-300 border-dashed rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer">
+                        <div class="text-center">
+                            <svg class="mx-auto h-10 w-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                            </svg>
+                            <p id="apk-filename" class="mt-2 text-sm text-slate-600"><span class="font-semibold text-blue-600">Click to upload</span> or drag & drop</p>
+                        </div>
+                        <input id="apk-file-input" type="file" class="hidden" accept=".apk">
+                    </div>
+                </div>
+
+                <!-- Test Steps Input -->
+                <div>
+                    <label for="test-steps" class="block text-base font-medium text-slate-700 mb-2">Enter Test Steps</label>
+                    <textarea id="test-steps" name="test-steps" rows="10" class="w-full p-4 border border-slate-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow" placeholder="1. Launch the app&#10;2. Wait for app to load the login page.&#10;3. Click on the 'Login' button..."></textarea>
+                </div>
+
+                <!-- Run Test Button -->
+                <div class="mt-8">
+                    <button id="run-test-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all shadow-md hover:shadow-lg disabled:bg-slate-400 disabled:cursor-not-allowed">
+                        Run Test
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Column: Results -->
+            <div class="lg:col-span-3 bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
+                <h2 class="text-2xl font-semibold mb-6 border-b border-slate-200 pb-4 text-slate-900">2. Test Results</h2>
+                <div id="results-container" class="space-y-3 h-[calc(100%-4rem)] overflow-y-auto pr-2">
+                    <div id="results-placeholder" class="text-center py-20 h-full flex flex-col justify-center items-center">
+                        <svg class="mx-auto h-16 w-16 text-slate-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                           <path stroke-linecap="round" stroke-linejoin="round" d="M10.125 2.25h-4.5c-1.125 0-2.25.9-2.25 2.25v15c0 1.125.9 2.25 2.25 2.25h10.5c1.125 0 2.25-.9 2.25-2.25v-15c0-1.125-.9-2.25-2.25-2.25h-4.5m-7.5 12h15m-12-4h.008v.008H5.625v-.008zm1.5 0h.008v.008H7.125v-.008zm1.5 0h.008v.008H8.625v-.008zm1.5 0h.008v.008H10.125v-.008zm1.5 0h.008v.008H11.625v-.008zm1.5 0h.008v.008H13.125v-.008zm1.5 0h.008v.008H14.625v-.008zm1.5 0h.008v.008H16.125v-.008zm1.5 0h.008v.008H17.625v-.008zm1.5 0h.008v.008H19.125v-.008zm-15-4h.008v.008H4.125v-.008zm1.5 0h.008v.008H5.625v-.008zm1.5 0h.008v.008H7.125v-.008zm1.5 0h.008v.008H8.625v-.008zm1.5 0h.008v.008H10.125v-.008zm1.5 0h.008v.008H11.625v-.008zm1.5 0h.008v.008H13.125v-.008zm1.5 0h.008v.008H14.625v-.008zm1.5 0h.008v.008H16.125v-.008zm1.5 0h.008v.008H17.625v-.008zm1.5 0h.008v.008H19.125v-.008z" />
+                        </svg>
+                        <p class="mt-4 text-lg text-slate-500">Test results will appear here.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Element References ---
+        const apkDropzone = document.getElementById('apk-dropzone');
+        const apkFileInput = document.getElementById('apk-file-input');
+        const apkFilenameDisplay = document.getElementById('apk-filename');
+        const testStepsTextarea = document.getElementById('test-steps');
+        const runTestBtn = document.getElementById('run-test-btn');
+        const resultsContainer = document.getElementById('results-container');
+        const resultsPlaceholder = document.getElementById('results-placeholder');
+
+        // --- WebSocket Connection ---
+        const socket = io("http://localhost:3000");
+
+        socket.on('connect', () => {
+            console.log('Connected to backend server with socket ID:', socket.id);
+        });
+
+        socket.on('step-update', (data) => {
+            console.log('Received step update:', data);
+            const stepCard = document.querySelector(`#step-card-${data.stepNumber}`);
+            if(stepCard) {
+                updateStepStatus(stepCard, data.status, data);
+            }
+        });
+        
+        socket.on('test-complete', (data) => {
+            console.log('Test complete:', data.message);
+            runTestBtn.disabled = false;
+            runTestBtn.textContent = 'Run Test';
+        });
+
+        socket.on('test-error', (data) => {
+            console.error('Test error:', data.message);
+            alert(`A test error occurred: ${data.message}`);
+            runTestBtn.disabled = false;
+            runTestBtn.textContent = 'Run Test';
+        });
+
+        // --- Event Listeners for File Upload ---
+        apkDropzone.addEventListener('click', () => apkFileInput.click());
+        apkDropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            apkDropzone.classList.add('border-blue-500', 'bg-blue-50');
+        });
+        apkDropzone.addEventListener('dragleave', () => {
+            apkDropzone.classList.remove('border-blue-500', 'bg-blue-50');
+        });
+        apkDropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            apkDropzone.classList.remove('border-blue-500', 'bg-blue-50');
+            if (e.dataTransfer.files.length) {
+                apkFileInput.files = e.dataTransfer.files;
+                handleFileSelect(apkFileInput.files[0]);
+            }
+        });
+        apkFileInput.addEventListener('change', () => {
+            if (apkFileInput.files.length) {
+                handleFileSelect(apkFileInput.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            if (file && file.name.endsWith('.apk')) {
+                apkFilenameDisplay.innerHTML = `<span class="font-semibold text-blue-600">${file.name}</span>`;
+            } else {
+                apkFilenameDisplay.innerHTML = `<span class="font-semibold text-red-600">Invalid file. Please select a .apk file.</span>`;
+            }
+        }
+
+        // --- Run Test Button Logic ---
+        runTestBtn.addEventListener('click', async () => {
+            const apkFile = apkFileInput.files[0];
+            const steps = testStepsTextarea.value.trim();
+            const selectedAiService = document.querySelector('input[name="ai-service"]:checked').value;
+
+            if (!socket.connected) {
+                alert('Not connected to the server. Please wait or refresh the page.');
+                return;
+            }
+            if (!apkFile || !apkFile.name.endsWith('.apk')) {
+                alert('Please upload a valid .apk file.');
+                return;
+            }
+            if (!steps) {
+                alert('Please enter the test steps.');
+                return;
+            }
+            
+            runTestBtn.disabled = true;
+            runTestBtn.textContent = 'Running Test...';
+            resultsPlaceholder.style.display = 'none';
+            resultsContainer.innerHTML = ''; 
+
+            const stepsArray = steps.split('\n').filter(s => s.trim() !== '');
+            
+            // Show skeleton loaders
+            stepsArray.forEach((stepText, index) => {
+                const skeletonElement = createSkeletonCard(index + 1);
+                resultsContainer.appendChild(skeletonElement);
+            });
+
+            const formData = new FormData();
+            formData.append('apkFile', apkFile);
+            formData.append('testSteps', steps);
+            formData.append('socketId', socket.id);
+            formData.append('aiService', selectedAiService);
+
+            try {
+                const response = await fetch('http://localhost:3000/api/run-test', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.message || 'An error occurred during the test request.');
+                }
+
+                // Replace skeletons with actual step cards
+                resultsContainer.innerHTML = '';
+                stepsArray.forEach((stepText, index) => {
+                    const stepElement = createStepCard(stepText, index + 1);
+                    resultsContainer.appendChild(stepElement);
+                });
+
+                console.log('Test request successful:', result.message);
+
+            } catch (error) {
+                console.error('Error sending test request:', error);
+                alert(`Error: ${error.message}`);
+                runTestBtn.disabled = false;
+                runTestBtn.textContent = 'Run Test';
+            }
+        });
+
+        // --- UI Update Functions ---
+        function createSkeletonCard(stepNumber) {
+            const card = document.createElement('div');
+            card.className = 'skeleton-loader bg-white p-4 rounded-lg shadow-sm flex items-start space-x-4';
+            card.innerHTML = `
+                <div class="h-6 w-6 bg-slate-200 rounded-full"></div>
+                <div class="flex-1 space-y-2">
+                    <div class="h-4 bg-slate-200 rounded w-3/4"></div>
+                    <div class="h-3 bg-slate-200 rounded w-1/4"></div>
+                </div>
+            `;
+            return card;
+        }
+
+        function createStepCard(stepText, stepNumber) {
+            const card = document.createElement('div');
+            card.id = `step-card-${stepNumber}`;
+            card.className = 'step-card bg-white p-4 rounded-lg shadow-sm flex items-start space-x-4 status-pending';
+            card.innerHTML = `
+                <div class="status-icon pt-1">${getIcon('pending')}</div>
+                <div>
+                    <p class="font-medium text-slate-800">Step ${stepNumber}: <span class="font-normal text-slate-600">${stepText}</span></p>
+                    <p class="status-text text-sm text-slate-500">Pending</p>
+                    <div class="details text-sm text-slate-600 mt-2" style="display: none;"></div>
+                </div>
+            `;
+            return card;
+        }
+
+        function updateStepStatus(stepElement, status, data) {
+            stepElement.classList.remove('status-pending', 'status-running');
+            const statusIcon = stepElement.querySelector('.status-icon');
+            const statusText = stepElement.querySelector('.status-text');
+            const details = stepElement.querySelector('.details');
+            const isSuccess = status === 'passed';
+
+            stepElement.classList.add(`status-${status}`);
+            statusIcon.innerHTML = getIcon(status);
+            statusText.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            statusText.className = `status-text text-sm ${isSuccess ? 'text-green-600' : 'text-red-600'} font-medium`;
+
+            if (!isSuccess && data.details && data.details.error) {
+                details.style.display = 'block';
+                details.innerHTML = `
+                    <p class="font-semibold mt-2">Details:</p>
+                    <pre class="bg-slate-100 p-2 mt-1 rounded text-xs text-red-800">${data.details.error}</pre>
+                `;
+            }
+        }
+
+        function getIcon(status) {
+            const icons = {
+                pending: `<svg class="h-6 w-6 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+                running: `<svg class="h-6 w-6 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`,
+                passed: `<svg class="h-6 w-6 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+                failed: `<svg class="h-6 w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>`
+            };
+            return icons[status];
+        }
+    </script>
+
+</body>
+</html>
