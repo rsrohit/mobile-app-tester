@@ -1,8 +1,8 @@
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 // --- API Keys and URLs ---
-const GEMINI_API_KEY = ""; 
-const DEEPSEEK_API_KEY = "";
+const GEMINI_API_KEY = "AIzaSyCYJncpCGgu0evaOxl9jGFnBMlJKbNdkVs"; 
+const DEEPSEEK_API_KEY = "sk-b516f19aa4d74b9ba22afa62e47669c1";
 
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
 const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";

@@ -1,15 +1,46 @@
 const { remote } = require('webdriverio');
 const path = require('path');
 const convert = require('xml-js');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const fs = require('fs');
+const FormData = require('form-data');
 // Import the updated NLP service functions
 const { translateStepsToCommands, findCorrectSelector } = require('../services/nlp_service');
 
-// Appium server configuration
-const appiumOptions = {
-    hostname: '127.0.0.1',
-    port: 4723,
-    logLevel: 'error',
-};
+// --- BrowserStack Credentials ---
+// It's best to use environment variables for these in a real project
+const BROWSERSTACK_USERNAME = "rohitshinde_YwW1dy";
+const BROWSERSTACK_ACCESS_KEY = "xxezZxByKhdTgTXmrMMh";
+
+
+// --- POM Caching Logic with File Persistence ---
+const POM_FILE_PATH = path.join(__dirname, '../../pom.json');
+let pomCache = {};
+
+// Load the entire multi-app cache from the file system on startup
+try {
+    if (fs.existsSync(POM_FILE_PATH)) {
+        const data = fs.readFileSync(POM_FILE_PATH, 'utf8');
+        pomCache = JSON.parse(data);
+        console.log("Successfully loaded multi-app POM cache from pom.json");
+    }
+} catch (error) {
+    console.error("Could not load POM cache from pom.json:", error);
+    pomCache = {}; // Start with an empty cache if loading fails
+}
+
+/**
+ * Saves the current state of the entire POM cache to the pom.json file.
+ */
+function saveCache() {
+    try {
+        fs.writeFileSync(POM_FILE_PATH, JSON.stringify(pomCache, null, 2), 'utf8');
+        console.log("POM cache saved to pom.json");
+    } catch (error) {
+        console.error("Could not save POM cache to pom.json:", error);
+    }
+}
+
 
 /**
  * Reduces the size of the XML to avoid API request limits.
@@ -54,26 +85,104 @@ function cleanPageSource(xml) {
 }
 
 /**
+ * Uploads an APK to BrowserStack and returns the app_url.
+ * @param {string} apkPath - The local path to the .apk file.
+ * @returns {Promise<string>} The app_url from BrowserStack.
+ */
+async function uploadToBrowserStack(apkPath) {
+    console.log("Uploading APK to BrowserStack...");
+    
+    const form = new FormData();
+    form.append('file', fs.createReadStream(apkPath));
+
+    const response = await fetch('https://api-cloud.browserstack.com/app-automate/upload', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Basic ' + Buffer.from(`${BROWSERSTACK_USERNAME}:${BROWSERSTACK_ACCESS_KEY}`).toString('base64'),
+        },
+        body: form,
+    });
+
+    if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`BrowserStack upload failed: ${errorBody}`);
+    }
+
+    const data = await response.json();
+    console.log("BrowserStack upload successful. App URL:", data.app_url);
+    return data.app_url;
+}
+
+/**
  * Executes a series of structured commands on an Android device using WebdriverIO and Appium.
  * @param {string} apkPath - The absolute path to the .apk file.
  * @param {string} rawStepsText - The raw natural language steps from the user as a single string.
  * @param {object} io - The Socket.IO instance for emitting real-time updates.
  * @param {string} socketId - The ID of the client's socket connection.
  * @param {string} aiService - The AI service to use ('gemini' or 'deepseek').
+ * @param {string} testEnvironment - The environment to run on ('local' or 'browserstack').
  */
-async function executeTest(apkPath, rawStepsText, io, socketId, aiService) {
+async function executeTest(apkPath, rawStepsText, io, socketId, aiService, testEnvironment) {
     let browser;
     try {
-        const capabilities = {
-            'platformName': 'Android',
-            'appium:automationName': 'UiAutomator2',
-            'appium:deviceName': 'Android Emulator',
-            'appium:app': path.resolve(apkPath),
-            'appium:noReset': false,
-            'appium:autoGrantPermissions': true,
-        };
+        let capabilities;
+        let appiumOptions = {};
 
+        if (testEnvironment === 'browserstack') {
+            const app_url = await uploadToBrowserStack(apkPath);
+            appiumOptions = {
+                hostname: 'hub-cloud.browserstack.com',
+                port: 4444,
+                path: '/wd/hub',
+                logLevel: 'error',
+                connectionRetryTimeout: 120000, // 2 minutes
+                connectionRetryCount: 3,
+            };
+            capabilities = {
+                'bstack:options': {
+                    'userName': BROWSERSTACK_USERNAME,
+                    'accessKey': BROWSERSTACK_ACCESS_KEY,
+                    'deviceName': 'Samsung Galaxy S23', // Example device
+                    'platformVersion': '13.0',
+                    'projectName': 'AI Mobile Tester',
+                    'buildName': `Build-${Date.now()}`,
+                    'debug': true,
+                    'networkLogs': true,
+                },
+                'platformName': 'Android',
+                'appium:automationName': 'UiAutomator2',
+                'appium:app': app_url,
+            };
+        } else {
+            // Default to local execution
+            appiumOptions = {
+                hostname: '127.0.0.1',
+                port: 4723,
+                logLevel: 'error',
+            };
+            capabilities = {
+                'platformName': 'Android',
+                'appium:automationName': 'UiAutomator2',
+                'appium:deviceName': 'Android Emulator',
+                'appium:app': path.resolve(apkPath),
+                'appium:noReset': false,
+                'appium:autoGrantPermissions': true,
+            };
+        }
+
+        console.log("Attempting to start remote session...");
         browser = await remote({ ...appiumOptions, capabilities });
+        console.log("Remote session started successfully.");
+
+        // --- NEW: Identify the app and prepare its specific cache ---
+        const appPackage = browser.capabilities.appPackage;
+        console.log(`Identified app package: ${appPackage}`);
+        if (!pomCache[appPackage]) {
+            console.log(`No existing cache found for ${appPackage}. Creating a new one.`);
+            pomCache[appPackage] = {};
+        }
+        const appSelectorCache = pomCache[appPackage];
+
 
         // --- PAGE-AWARE GROUPING LOGIC ---
         console.log("Starting page-aware grouped test execution...");
@@ -114,22 +223,8 @@ async function executeTest(apkPath, rawStepsText, io, socketId, aiService) {
             const pageSource = await browser.getPageSource();
             const cleanedSource = cleanPageSource(pageSource);
 
-            const commandsResponse = await translateStepsToCommands(group.join('\n'), cleanedSource, aiService);
-            console.log("Received context-aware commands for group:", commandsResponse);
-
-            // --- FIX: Handle multiple response structures from different AI services ---
-            let commands;
-            if (Array.isArray(commandsResponse)) {
-                commands = commandsResponse; // Handles Gemini's array response
-            } else if (commandsResponse.steps && Array.isArray(commandsResponse.steps)) {
-                commands = commandsResponse.steps; // Handles Deepseek's nested array response
-            } else if (commandsResponse.command) {
-                commands = [commandsResponse]; // Handles Deepseek's single object response
-            }
-
-            if (!commands) {
-                throw new Error(`AI service returned an invalid command structure: ${JSON.stringify(commandsResponse)}`);
-            }
+            const commands = await translateStepsToCommands(group.join('\n'), cleanedSource, aiService);
+            console.log("Received context-aware commands for group:", commands);
 
             for (const command of commands) {
                 stepCounter++;
@@ -138,7 +233,8 @@ async function executeTest(apkPath, rawStepsText, io, socketId, aiService) {
                 io.to(socketId).emit('step-update', { stepNumber, status: 'running' });
 
                 try {
-                    await executeCommand(browser, command, aiService);
+                    // Pass the app-specific cache to the command executor
+                    await executeCommand(browser, command, aiService, appSelectorCache);
                     io.to(socketId).emit('step-update', { stepNumber, status: 'passed' });
                 } catch (stepError) {
                     console.error(`Error on step ${stepNumber}:`, stepError.message);
@@ -170,8 +266,9 @@ async function executeTest(apkPath, rawStepsText, io, socketId, aiService) {
  * @param {object} browser - The WebdriverIO browser instance.
  * @param {object} command - The command object to execute.
  * @param {string} aiService - The AI service to use for self-healing.
+ * @param {object} appSelectorCache - The selector cache for the specific app being tested.
  */
-async function executeCommand(browser, command, aiService) {
+async function executeCommand(browser, command, aiService, appSelectorCache) {
     if (command.command === 'launchApp') {
         await browser.pause(2000);
         return;
@@ -223,37 +320,63 @@ async function executeCommand(browser, command, aiService) {
         return await browser.$(xpathSelector);
     };
 
-    try {
-        console.log(`Executing step: "${command.original_step}" with selector: "${command.selector}"`);
-        const element = await findElement(command.selector);
-        await element.waitForExist({ timeout: 10000 });
-        console.log("Found element successfully.");
-        await performAction(element);
+    // --- POM Caching Logic ---
+    const cacheKey = command.original_step;
+    let element;
+    let usedCachedSelector = false;
 
-    } catch (initialError) {
-        console.log("Initial findElement strategy failed. Initiating self-healing protocol.");
-        
+    // 1. Try to find the element using a cached selector first
+    if (appSelectorCache[cacheKey]) {
         try {
-            const pageSource = await browser.getPageSource();
-            const cleanedSourceForHealing = cleanPageSource(pageSource);
-            let newSelector = await findCorrectSelector(command.original_step, cleanedSourceForHealing, aiService);
-
-            // Sanitize the AI's response to remove backticks or quotes
-            newSelector = newSelector.replace(/[`"']/g, '');
-
-            console.log(`Self-healing: Retrying step with AI-suggested selector: "${newSelector}"`);
-            const healedElement = await findElement(newSelector);
-            await healedElement.waitForExist({ timeout: 10000 });
-            
-            console.log("Successfully found element with AI-healed selector.");
-            await performAction(healedElement);
-
-        } catch (healingError) {
-            console.error("Self-healing also failed.", healingError);
-            throw new Error(`Could not find element for step: "${command.original_step}". Initial error: ${initialError.message}`);
+            console.log(`Found cached selector for step "${cacheKey}": "${appSelectorCache[cacheKey]}"`);
+            element = await findElement(appSelectorCache[cacheKey]);
+            await element.waitForExist({ timeout: 5000 }); // Use a shorter timeout for cached selectors
+            console.log("Successfully found element using cached selector.");
+            usedCachedSelector = true;
+        } catch (e) {
+            console.log("Cached selector failed. Proceeding with AI-provided selector.");
+            delete appSelectorCache[cacheKey]; // Remove the invalid selector from the cache
+            saveCache(); // Update the JSON file
         }
     }
 
+    // 2. If the cache wasn't used or failed, use the AI-provided selector and self-healing
+    if (!usedCachedSelector) {
+        try {
+            console.log(`Executing step: "${command.original_step}" with selector: "${command.selector}"`);
+            element = await findElement(command.selector);
+            await element.waitForExist({ timeout: 10000 });
+            console.log("Found element successfully with AI-provided selector.");
+            appSelectorCache[cacheKey] = command.selector; // Cache the successful selector
+            saveCache(); // Update the JSON file
+
+        } catch (initialError) {
+            console.log("Initial findElement strategy failed. Initiating self-healing protocol.");
+            
+            try {
+                const pageSource = await browser.getPageSource();
+                const cleanedSourceForHealing = cleanPageSource(pageSource);
+                let newSelector = await findCorrectSelector(command.original_step, cleanedSourceForHealing, aiService);
+
+                newSelector = newSelector.replace(/[`"']/g, '');
+
+                console.log(`Self-healing: Retrying step with AI-suggested selector: "${newSelector}"`);
+                element = await findElement(newSelector);
+                await element.waitForExist({ timeout: 10000 });
+                
+                console.log("Successfully found element with AI-healed selector.");
+                appSelectorCache[cacheKey] = newSelector; // Cache the successful healed selector
+                saveCache(); // Update the JSON file
+
+            } catch (healingError) {
+                console.error("Self-healing also failed.", healingError);
+                throw new Error(`Could not find element for step: "${command.original_step}". Initial error: ${initialError.message}`);
+            }
+        }
+    }
+
+    // 3. Perform the action on the found element
+    await performAction(element);
     await browser.pause(1000);
 }
 

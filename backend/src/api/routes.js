@@ -33,8 +33,9 @@ const routes = (io) => {
         const apkFile = req.file;
         const socketId = req.body.socketId;
         const aiService = req.body.aiService || 'gemini'; // Default to gemini if not provided
+        const testEnvironment = req.body.testEnvironment || 'local'; // Default to local
 
-        console.log(`Received test request from socket: ${socketId} using AI service: ${aiService}`);
+        console.log(`Received test request from socket: ${socketId} using AI service: ${aiService} on environment: ${testEnvironment}`);
         console.log('APK File:', apkFile.filename);
 
         if (!apkFile || !testSteps || !socketId) {
@@ -46,8 +47,8 @@ const routes = (io) => {
             file: apkFile.filename
         });
 
-        // Run the full test process asynchronously, passing the chosen AI service
-        executeTest(apkFile.path, testSteps, io, socketId, aiService);
+        // Run the full test process asynchronously, passing the chosen AI service and environment
+        executeTest(apkFile.path, testSteps, io, socketId, aiService, testEnvironment);
     });
 
     return router;
