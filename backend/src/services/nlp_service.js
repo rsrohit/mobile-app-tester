@@ -43,11 +43,41 @@ async function translateStepsToCommands(rawSteps, pageSource, aiService) {
     `;
 
     if (aiService === 'deepseek') {
-        return callDeepseek(prompt);
+        return callDeepseek(prompt, 'translate');
     }
     // Default to Gemini
     return callGemini(prompt, 'translate');
 }
+
+/**
+ * Asks the AI to identify a stable element to wait for to confirm a page has loaded.
+ * @param {string} pageName - The name of the page we are waiting for (e.g., "home").
+ * @param {string} pageSource - The current XML page source.
+ * @param {string} aiService - The selected AI service.
+ * @returns {Promise<string>} A promise that resolves to the selector of a stable element.
+ */
+async function getPageLoadIndicator(pageName, pageSource, aiService) {
+    console.log(`Asking ${aiService} for a stable element to verify the "${pageName}" page has loaded...`);
+    const prompt = `
+        You are an expert Appium test automation engineer. The test is waiting for the "${pageName}" page to load.
+        Analyze the provided XML page source and identify the single, most reliable selector for a stable element that is always present on the "${pageName}" page (e.g., a title, a navigation bar, or a main layout).
+
+        Prioritize selectors in this order:
+        1.  **resource-id**
+        2.  **content-desc**
+
+        **XML Page Source:**
+        \`\`\`xml
+        ${pageSource}
+        \`\`\`
+
+        Return only the single best selector string, with no explanation.
+    `;
+    
+    // For this task, Gemini is generally more reliable. We'll use it regardless of the user's choice for translation.
+    return callGemini(prompt, 'heal'); // 'heal' task just returns the raw text response.
+}
+
 
 /**
  * Calls the Gemini API with a given prompt.
@@ -74,10 +104,11 @@ async function callGemini(prompt, task) {
              const cleanedJson = rawJson.replace(/```json\n|```/g, '').trim();
              return JSON.parse(cleanedJson);
         }
-        // For self-healing, just return the raw text
+        // For self-healing or getting an indicator, just return the raw text
         return rawJson.trim();
 
-    } catch (error) {
+    } catch (error)
+ {
         console.error("Error calling Gemini API:", error);
         throw new Error("Failed to get a valid response from the Gemini service.");
     }
@@ -85,8 +116,10 @@ async function callGemini(prompt, task) {
 
 /**
  * Calls the Deepseek API with a given prompt.
+ * @param {string} prompt - The prompt to send to the API.
+ * @param {string} task - The type of task ('translate' or 'heal').
  */
-async function callDeepseek(prompt) {
+async function callDeepseek(prompt, task) {
     console.log("Sending request to Deepseek API...");
     const payload = {
         model: "deepseek-chat",
@@ -179,5 +212,6 @@ async function findCorrectSelector(originalStep, pageSource, aiService) {
 
 module.exports = {
     translateStepsToCommands,
-    findCorrectSelector
+    findCorrectSelector,
+    getPageLoadIndicator // Export the new function
 };
