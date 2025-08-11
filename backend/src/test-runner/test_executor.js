@@ -1,15 +1,24 @@
 const { remote } = require('webdriverio');
 const path = require('path');
 const convert = require('xml-js');
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const fs = require('fs');
 const FormData = require('form-data');
 // Import the updated NLP service functions
 const { translateStepsToCommands, findCorrectSelector, getPageLoadIndicator } = require('../services/nlp_service');
 
+// Load environment variables from a `.env` file if available.  This call will
+// silently do nothing if no `.env` file exists.  It should be placed near
+// the top of the file to ensure that environment variables are available
+// for subsequent declarations.
+require('dotenv').config();
+
 // --- BrowserStack Credentials ---
-const BROWSERSTACK_USERNAME = "rohitshinde_YwW1dy";
-const BROWSERSTACK_ACCESS_KEY = "xxezZxByKhdTgTXmrMMh";
+// Read credentials from environment variables.  Do not hard‑code secrets in
+// source code.  If either credential is missing, BrowserStack tests will
+// throw an explicit error when attempted.
+const BROWSERSTACK_USERNAME = process.env.BROWSERSTACK_USERNAME;
+const BROWSERSTACK_ACCESS_KEY = process.env.BROWSERSTACK_ACCESS_KEY;
 
 // --- POM Caching Logic with File Persistence ---
 const POM_FILE_PATH = path.join(__dirname, '../../pom.json');
@@ -20,10 +29,10 @@ try {
     if (fs.existsSync(POM_FILE_PATH)) {
         const data = fs.readFileSync(POM_FILE_PATH, 'utf8');
         pomCache = JSON.parse(data);
-        console.log("Successfully loaded multi-app POM cache from pom.json");
+        console.log('Successfully loaded multi-app POM cache from pom.json');
     }
 } catch (error) {
-    console.error("Could not load POM cache from pom.json:", error);
+    console.error('Could not load POM cache from pom.json:', error);
     pomCache = {}; // Start with an empty cache if loading fails
 }
 
@@ -33,12 +42,11 @@ try {
 function saveCache() {
     try {
         fs.writeFileSync(POM_FILE_PATH, JSON.stringify(pomCache, null, 2), 'utf8');
-        console.log("POM cache saved to pom.json");
+        console.log('POM cache saved to pom.json');
     } catch (error) {
-        console.error("Could not save POM cache to pom.json:", error);
+        console.error('Could not save POM cache to pom.json:', error);
     }
 }
-
 
 /**
  * Reduces the size of the XML to avoid API request limits.
@@ -53,7 +61,18 @@ function cleanPageSource(xml) {
         // Recursive function to remove non-essential attributes from each node
         function cleanNode(node) {
             if (!node) return;
-            const attributesToKeep = ['class', 'resource-id', 'content-desc', 'text', 'package', 'checkable', 'checked', 'clickable', 'enabled', 'selected'];
+            const attributesToKeep = [
+                'class',
+                'resource-id',
+                'content-desc',
+                'text',
+                'package',
+                'checkable',
+                'checked',
+                'clickable',
+                'enabled',
+                'selected',
+            ];
             if (node._attributes) {
                 const newAttributes = {};
                 for (const key of attributesToKeep) {
@@ -77,7 +96,7 @@ function cleanPageSource(xml) {
         cleanNode(json);
         return convert.js2xml(json, { compact: true, spaces: 2 });
     } catch (error) {
-        console.error("Failed to clean XML page source, returning original.", error);
+        console.error('Failed to clean XML page source, returning original.', error);
         return xml; // Fallback to the original XML if cleaning fails
     }
 }
@@ -88,15 +107,21 @@ function cleanPageSource(xml) {
  * @returns {Promise<string>} The app_url from BrowserStack.
  */
 async function uploadToBrowserStack(apkPath) {
-    console.log("Uploading APK to BrowserStack...");
-    
+    if (!BROWSERSTACK_USERNAME || !BROWSERSTACK_ACCESS_KEY) {
+        throw new Error(
+            'BrowserStack credentials are missing. Set BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY in your environment.'
+        );
+    }
+    console.log('Uploading APK to BrowserStack...');
+
     const form = new FormData();
     form.append('file', fs.createReadStream(apkPath));
 
     const response = await fetch('https://api-cloud.browserstack.com/app-automate/upload', {
         method: 'POST',
         headers: {
-            'Authorization': 'Basic ' + Buffer.from(`${BROWSERSTACK_USERNAME}:${BROWSERSTACK_ACCESS_KEY}`).toString('base64'),
+            Authorization:
+                'Basic ' + Buffer.from(`${BROWSERSTACK_USERNAME}:${BROWSERSTACK_ACCESS_KEY}`).toString('base64'),
         },
         body: form,
     });
@@ -107,7 +132,7 @@ async function uploadToBrowserStack(apkPath) {
     }
 
     const data = await response.json();
-    console.log("BrowserStack upload successful. App URL:", data.app_url);
+    console.log('BrowserStack upload successful. App URL:', data.app_url);
     return data.app_url;
 }
 
@@ -120,7 +145,14 @@ async function uploadToBrowserStack(apkPath) {
  * @param {string} aiService - The AI service to use ('gemini' or 'deepseek').
  * @param {string} testEnvironment - The environment to run on ('local' or 'browserstack').
  */
-async function executeTest(apkPath, rawStepsText, io, socketId, aiService, testEnvironment) {
+async function executeTest(
+    apkPath,
+    rawStepsText,
+    io,
+    socketId,
+    aiService,
+    testEnvironment,
+) {
     let browser;
     try {
         let capabilities;
@@ -138,28 +170,30 @@ async function executeTest(apkPath, rawStepsText, io, socketId, aiService, testE
             };
             capabilities = {
                 'bstack:options': {
-                    'userName': BROWSERSTACK_USERNAME,
-                    'accessKey': BROWSERSTACK_ACCESS_KEY,
-                    'deviceName': 'Samsung Galaxy S23', // Example device
-                    'platformVersion': '13.0',
-                    'projectName': 'AI Mobile Tester',
-                    'buildName': `Build-${Date.now()}`,
-                    'debug': true,
-                    'networkLogs': true,
+                    userName: BROWSERSTACK_USERNAME,
+                    accessKey: BROWSERSTACK_ACCESS_KEY,
+                    deviceName: 'Samsung Galaxy S23', // Example device
+                    platformVersion: '13.0',
+                    projectName: 'AI Mobile Tester',
+                    buildName: `Build-${Date.now()}`,
+                    debug: true,
+                    networkLogs: true,
                 },
-                'platformName': 'Android',
+                platformName: 'Android',
                 'appium:automationName': 'UiAutomator2',
                 'appium:app': app_url,
             };
         } else {
-            // Default to local execution
+            // Default to local execution. Allow overriding the Appium host/port via environment variables.
+            const appiumHost = process.env.APPIUM_HOST || '127.0.0.1';
+            const appiumPort = parseInt(process.env.APPIUM_PORT || '4723', 10);
             appiumOptions = {
-                hostname: '127.0.0.1',
-                port: 4723,
+                hostname: appiumHost,
+                port: appiumPort,
                 logLevel: 'error',
             };
             capabilities = {
-                'platformName': 'Android',
+                platformName: 'Android',
                 'appium:automationName': 'UiAutomator2',
                 'appium:deviceName': 'Android Emulator',
                 'appium:app': path.resolve(apkPath),
@@ -168,9 +202,9 @@ async function executeTest(apkPath, rawStepsText, io, socketId, aiService, testE
             };
         }
 
-        console.log("Attempting to start remote session...");
+        console.log('Attempting to start remote session...');
         browser = await remote({ ...appiumOptions, capabilities });
-        console.log("Remote session started successfully.");
+        console.log('Remote session started successfully.');
 
         // --- NEW: Identify the app and prepare its specific cache ---
         const appPackage = browser.capabilities.appPackage;
@@ -183,8 +217,8 @@ async function executeTest(apkPath, rawStepsText, io, socketId, aiService, testE
 
         // --- NEW: Define findElement at a higher scope ---
         const findElement = async (selector) => {
-            if (!selector) throw new Error("Selector is null or undefined.");
-            
+            if (!selector) throw new Error('Selector is null or undefined.');
+
             if (selector.toLowerCase().startsWith('resource-id:')) {
                 const resourceId = selector.substring(12);
                 console.log(`Attempting to find by parsed Resource ID: ${resourceId}`);
@@ -212,17 +246,18 @@ async function executeTest(apkPath, rawStepsText, io, socketId, aiService, testE
                 console.log(`Attempting to find by Resource ID: ${selector}`);
                 return await browser.$(`id:${selector}`);
             }
-            console.log(`Attempting to find by flexible XPath for text: "${selector}"`);
+            console.log(
+                `Attempting to find by flexible XPath for text: "${selector}"`,
+            );
             const xpathSelector = `//*[contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${selector.toLowerCase()}") or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${selector.toLowerCase()}")]`;
             return await browser.$(xpathSelector);
         };
 
-
         // --- PAGE-AWARE GROUPING LOGIC ---
-        console.log("Starting page-aware grouped test execution...");
-        
-        const allSteps = rawStepsText.split('\n').filter(s => s.trim() !== '');
-        
+        console.log('Starting page-aware grouped test execution...');
+
+        const allSteps = rawStepsText.split('\n').filter((s) => s.trim() !== '');
+
         let stepCounter = 0;
         let currentPageName = 'initial'; // Track the current page context
 
@@ -250,23 +285,31 @@ async function executeTest(apkPath, rawStepsText, io, socketId, aiService, testE
                     if (match && match[1]) {
                         currentPageName = match[1].trim().toLowerCase();
                         console.log(`Page context updated to: "${currentPageName}"`);
-                        
+
                         // Wait a moment for the transition to begin
-                        await browser.pause(1000); 
-                        
+                        await browser.pause(1000);
+
                         const pageSource = await browser.getPageSource();
                         const cleanedSource = cleanPageSource(pageSource);
-                        
-                        let indicatorSelector = await getPageLoadIndicator(currentPageName, cleanedSource, aiService);
+
+                        let indicatorSelector = await getPageLoadIndicator(
+                            currentPageName,
+                            cleanedSource,
+                            aiService,
+                        );
                         // --- FIX: Sanitize the selector from the AI ---
                         indicatorSelector = indicatorSelector.replace(/[`"']/g, '');
 
-                        console.log(`AI identified "${indicatorSelector}" as the key element for the ${currentPageName} page.`);
-                        
+                        console.log(
+                            `AI identified "${indicatorSelector}" as the key element for the ${currentPageName} page.`,
+                        );
+
                         // --- FIX: Use the robust findElement function for waiting ---
                         const indicatorElement = await findElement(indicatorSelector);
                         await indicatorElement.waitForExist({ timeout: 30000, interval: 2000 }); // Wait up to 30 seconds
-                        console.log(`Successfully verified that the ${currentPageName} page has loaded.`);
+                        console.log(
+                            `Successfully verified that the ${currentPageName} page has loaded.`,
+                        );
                     } else {
                         await browser.pause(3000); // Fallback to a simple pause if no page name is found
                     }
@@ -275,28 +318,45 @@ async function executeTest(apkPath, rawStepsText, io, socketId, aiService, testE
                 }
 
                 // --- For complex steps, use the AI ---
-                console.log(`--- Executing AI-driven step: "${step}" on page: "${currentPageName}" ---`);
+                console.log(
+                    `--- Executing AI-driven step: "${step}" on page: "${currentPageName}" ---`,
+                );
                 const pageSource = await browser.getPageSource();
                 const cleanedSource = cleanPageSource(pageSource);
-                
+
                 // We ask the AI to translate just this one complex step
-                const commandResponse = await translateStepsToCommands(step, cleanedSource, aiService);
-                console.log("Received context-aware command:", commandResponse);
+                const commandResponse = await translateStepsToCommands(
+                    step,
+                    cleanedSource,
+                    aiService,
+                );
+                console.log('Received context-aware command:', commandResponse);
 
                 // --- FIX: Gracefully handle empty or invalid responses from the AI ---
-                let commandToExecute = Array.isArray(commandResponse) ? commandResponse[0] : commandResponse;
+                let commandToExecute = Array.isArray(commandResponse)
+                    ? commandResponse[0]
+                    : commandResponse;
 
                 if (!commandToExecute || !commandToExecute.command) {
-                    console.log("AI could not determine a command. Creating a placeholder to trigger self-healing.");
+                    console.log(
+                        'AI could not determine a command. Creating a placeholder to trigger self-healing.',
+                    );
                     commandToExecute = {
                         command: 'verifyVisible', // A safe default command
                         selector: null, // A null selector will always fail the first attempt, triggering self-healing
-                        original_step: step
+                        original_step: step,
                     };
                 }
 
-
-                await executeCommand(browser, commandToExecute, aiService, appSelectorCache, currentPageName, step, findElement);
+                await executeCommand(
+                    browser,
+                    commandToExecute,
+                    aiService,
+                    appSelectorCache,
+                    currentPageName,
+                    step,
+                    findElement,
+                );
                 io.to(socketId).emit('step-update', { stepNumber, status: 'passed' });
 
             } catch (stepError) {
@@ -304,20 +364,26 @@ async function executeTest(apkPath, rawStepsText, io, socketId, aiService, testE
                 io.to(socketId).emit('step-update', {
                     stepNumber,
                     status: 'failed',
-                    details: { error: stepError.message }
+                    details: { error: stepError.message },
                 });
                 throw new Error(`Test failed at step ${stepNumber}: ${step}`);
             }
         }
 
-
-        console.log("Test execution completed successfully.");
+        console.log('Test execution completed successfully.');
         io.to(socketId).emit('test-complete', { message: 'Test finished successfully!' });
-
     } catch (error) {
-        console.error("An error occurred during the test execution:", error);
-        io.to(socketId).emit('test-error', { message: error.message || 'A critical error occurred in the test executor.' });
+        console.error('An error occurred during the test execution:', error);
+        io.to(socketId).emit('test-error', {
+            message: error.message || 'A critical error occurred in the test executor.',
+        });
     } finally {
+        try {
+            // Always attempt to persist the POM cache to disk at the end of a test.
+            saveCache();
+        } catch (cacheError) {
+            console.error('Failed to persist POM cache on shutdown:', cacheError);
+        }
         if (browser) {
             await browser.deleteSession();
         }
@@ -350,7 +416,15 @@ function extractElementName(step) {
  * @param {string} originalStepText - The original raw text of the step.
  * @param {Function} findElement - The robust findElement helper function.
  */
-async function executeCommand(browser, command, aiService, appSelectorCache, currentPageName, originalStepText, findElement) {
+async function executeCommand(
+    browser,
+    command,
+    aiService,
+    appSelectorCache,
+    currentPageName,
+    originalStepText,
+    findElement,
+) {
     // Normalize the command object in case the AI response is malformed
     const safeCommand = command || {};
     safeCommand.original_step = originalStepText;
@@ -376,11 +450,11 @@ async function executeCommand(browser, command, aiService, appSelectorCache, cur
             console.log(`Found cached selector for step "${cacheKey}": "${cachedSelector}"`);
             element = await findElement(cachedSelector);
             await element.waitForExist({ timeout: 5000 });
-            console.log("Successfully found element using cached selector.");
+            console.log('Successfully found element using cached selector.');
             await performAction(element);
             return; // Success, end of function
         } catch (e) {
-            console.log("Cached selector failed. Deleting it and trying AI.");
+            console.log('Cached selector failed. Deleting it and trying AI.');
             delete appSelectorCache[cacheKey];
             saveCache();
         }
@@ -390,12 +464,12 @@ async function executeCommand(browser, command, aiService, appSelectorCache, cur
     try {
         if (!safeCommand.selector) {
             // This will make it jump directly to the catch block for self-healing
-            throw new Error("AI did not provide an initial selector.");
+            throw new Error('AI did not provide an initial selector.');
         }
         console.log(`Executing step with AI-provided selector: "${safeCommand.selector}"`);
         element = await findElement(safeCommand.selector);
         await element.waitForExist({ timeout: 10000 });
-        console.log("Found element successfully with AI-provided selector.");
+        console.log('Found element successfully with AI-provided selector.');
         finalSelector = safeCommand.selector;
     } catch (initialError) {
         // 3. If initial attempt fails, initiate self-healing
@@ -403,18 +477,26 @@ async function executeCommand(browser, command, aiService, appSelectorCache, cur
         try {
             const pageSource = await browser.getPageSource();
             const cleanedSourceForHealing = cleanPageSource(pageSource);
-            let newSelector = await findCorrectSelector(safeCommand.original_step, cleanedSourceForHealing, aiService);
+            let newSelector = await findCorrectSelector(
+                safeCommand.original_step,
+                cleanedSourceForHealing,
+                aiService,
+            );
             newSelector = newSelector.replace(/[`"']/g, '');
 
-            console.log(`Self-healing: Retrying step with AI-suggested selector: "${newSelector}"`);
+            console.log(
+                `Self-healing: Retrying step with AI-suggested selector: "${newSelector}"`,
+            );
             element = await findElement(newSelector);
             await element.waitForExist({ timeout: 10000 });
-            
-            console.log("Successfully found element with AI-healed selector.");
+
+            console.log('Successfully found element with AI-healed selector.');
             finalSelector = newSelector;
         } catch (healingError) {
-            console.error("Self-healing also failed.", healingError);
-            throw new Error(`Could not find element for step: "${safeCommand.original_step}"`);
+            console.error('Self-healing also failed.', healingError);
+            throw new Error(
+                `Could not find element for step: "${safeCommand.original_step}"`,
+            );
         }
     }
 
