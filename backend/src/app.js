@@ -1,52 +1,140 @@
-// Import necessary modules
-const express = require('express');
+// Core modules
 const http = require('http');
 const path = require('path');
-const { Server } = require("socket.io");
+
+// Third‑party modules
+const express = require('express');
+const { Server } = require('socket.io');
+const helmet = require('helmet');
+const compression = require('compression');
+const morgan = require('morgan');
+const cors = require('cors');
+const rateLimit = require('express-rate-limit');
+
+// Local modules
+const config = require('./config');
 const apiRoutes = require('./api/routes');
 
-// --- Basic Setup ---
+// Instantiate Express and HTTP server
 const app = express();
 const server = http.createServer(app);
+
+// Configure Socket.IO with CORS reflecting our allowed origins
 const io = new Server(server, {
-    cors: {
-        origin: "*", // Allow all origins for simplicity. In production, restrict this.
-        methods: ["GET", "POST"]
-    }
+  cors: {
+    origin: config.allowedOrigin === '*'
+      ? '*'
+      : config.allowedOrigin.split(',').map((o) => o.trim()),
+    methods: ['GET', 'POST'],
+  },
 });
 
-const PORT = process.env.PORT || 3000;
+// -------------------------------------------------------------
+// Global Middleware
+// -------------------------------------------------------------
 
-// --- Middleware ---
-// To parse JSON bodies
+// Set various HTTP headers for security
+app.use(helmet());
+
+// Gzip/deflate compress all responses
+app.use(compression());
+
+// Request logging (combined format includes user agent, status, etc.)
+app.use(morgan('combined'));
+
+// Enable JSON and URL encoded body parsing
 app.use(express.json());
-// To parse URL-encoded bodies
 app.use(express.urlencoded({ extended: true }));
 
-// Serve the frontend UI
-// This assumes the 'frontend' directory is two levels above the 'src' directory
-// CORRECTED PATH: Changed from '../../../frontend' to '../../frontend'
-const frontendPath = path.join(__dirname, '../../frontend');
-app.use(express.static(frontendPath));
+// Apply CORS.  Accept multiple origins if provided; otherwise fall back
+// to '*'.  When '*' is used, the Access‑Control‑Allow‑Origin header
+// reflects the wildcard.  For a comma‑separated list, only those
+// origins will be allowed.
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || config.allowedOrigin === '*') return callback(null, true);
+      const allowed = config.allowedOrigin.split(',').map((o) => o.trim());
+      return allowed.includes(origin) ? callback(null, true) : callback(new Error('Not allowed by CORS'));
+    },
+    methods: ['GET', 'POST'],
+    credentials: false,
+  }),
+);
 
-// --- API Routes ---
-// Pass the 'io' instance to the routes so they can emit events
+// Apply a simple rate limiter to protect against brute force and DOS.
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300, // limit each IP to 300 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
+
+// Serve the frontend UI statically.  If the directory does not exist,
+// Express will ignore this middleware.
+app.use(express.static(config.frontendPath));
+
+// -------------------------------------------------------------
+// Routes
+// -------------------------------------------------------------
+
+// Mount API routes and provide the socket.io instance.  The
+// implementation of routes returns a configured router.
 app.use('/api', apiRoutes(io));
 
-// --- WebSocket Connection Handling ---
-io.on('connection', (socket) => {
-    console.log(`A user connected with socket id: ${socket.id}`);
-
-    // Handle disconnection
-    socket.on('disconnect', () => {
-        console.log(`User with socket id: ${socket.id} disconnected`);
-    });
-
-    // You can add more socket event listeners here if needed
+// Serve the main frontend page for the root path.  Without this
+// fallback, navigating to '/' would trigger the 404 handler and return
+// JSON instead of the index.html.  Any non-API route can fall back to
+// serving the index page here if desired.
+app.get('/', (req, res) => {
+  res.sendFile(path.join(config.frontendPath, 'index.html'), (err) => {
+    if (err) {
+      // If sending the file fails, forward to the error handler
+      return res.status(500).json({ message: 'Unable to serve frontend index.html' });
+    }
+  });
 });
 
-// --- Start Server ---
-server.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-    console.log(`Frontend served from: ${frontendPath}`); // Added for debugging
+// -------------------------------------------------------------
+// WebSocket Handling
+// -------------------------------------------------------------
+io.on('connection', (socket) => {
+  console.log(`A user connected with socket id: ${socket.id}`);
+  socket.on('disconnect', () => {
+    console.log(`User with socket id: ${socket.id} disconnected`);
+  });
+});
+
+// -------------------------------------------------------------
+// Error Handling
+// -------------------------------------------------------------
+
+// Catch 404 and forward to error handler
+app.use((req, res, next) => {
+  const err = new Error('Not Found');
+  err.status = 404;
+  next(err);
+});
+
+// Centralized error handler.  Always return JSON to the client.  If
+// headers are already sent, delegate to default Express error handler.
+app.use((err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+  const status = err.status || 500;
+  const message = err.message || 'Internal Server Error';
+  // Log the error stack for debugging
+  console.error(err);
+  res.status(status).json({ message });
+});
+
+// -------------------------------------------------------------
+// Startup
+// -------------------------------------------------------------
+
+server.listen(config.port, () => {
+  console.log(`Server is running on http://localhost:${config.port}`);
+  console.log(`Frontend served from: ${config.frontendPath}`);
 });
