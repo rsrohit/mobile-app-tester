@@ -26,6 +26,7 @@ config.port = parseInt(process.env.PORT || '3000', 10);
 // avoid surprises when the working directory differs.
 const defaultFrontend = path.join(__dirname, '../../frontend');
 const defaultUploadDir = path.join(__dirname, '../../uploads');
+const defaultTestsDir = path.join(__dirname, '../../tests');
 
 function resolveRelativePath(envPath, fallback) {
   if (!envPath) return fallback;
@@ -34,6 +35,10 @@ function resolveRelativePath(envPath, fallback) {
 
 config.frontendPath = resolveRelativePath(process.env.FRONTEND_PATH, defaultFrontend);
 config.uploadDir = resolveRelativePath(process.env.UPLOAD_DIR, defaultUploadDir);
+
+// Resolve the path to the directory containing test definitions.  Test
+// files (JSON or CSV) stored here will be loaded by the test_service.
+config.testsDir = resolveRelativePath(process.env.TESTS_DIR, defaultTestsDir);
 
 // Maximum upload size (in megabytes).  Values from process.env are
 // coerced to integers; invalid values fall back to 50MB.

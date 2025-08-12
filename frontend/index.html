@@ -4,9 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mobile App Tester</title>
+    <!--
+      TailwindCSS via CDN.  Our server's content security policy allows this
+      external script.  Alternatively, you can build Tailwind locally and
+      reference a generated CSS file in the assets/ directory.
+    -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <!--
+      Load the Socket.IO client from our own server instead of a third‑party
+      CDN.  Express with socket.io automatically serves the client script at
+      /socket.io/socket.io.js.  Using this path avoids CSP issues and removes an
+      external dependency.
+    -->
+    <script src="/socket.io/socket.io.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;

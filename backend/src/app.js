@@ -33,8 +33,44 @@ const io = new Server(server, {
 // Global Middleware
 // -------------------------------------------------------------
 
-// Set various HTTP headers for security
-app.use(helmet());
+// Set various HTTP headers for security.  Configure a custom content security
+// policy to permit our frontend to load assets from approved external CDNs and
+// run inline scripts/styles.  Without these directives, Helmet’s default CSP
+// would block the Tailwind CDN and inline scripts in index.html, causing
+// requests to be blocked (see DevTools network panel for "blocked:csp").  We
+// explicitly allow the Tailwind CDN and Google Fonts, enable inline scripts and
+// styles (required for the client’s inline JavaScript and styling), and
+// specify our own server for WebSocket connections.  If you add additional
+// external resources, update these lists accordingly.
+app.use(
+  helmet({
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        // Permit scripts and default resources from our own domain and the
+        // Tailwind CDN.  'unsafe-inline' is necessary for inline <script> tags
+        // in index.html.  The socket.io client script is served from our
+        // server under /socket.io/socket.io.js, so it is covered by 'self'.
+        'script-src': ["'self'", "'unsafe-inline'", 'https://cdn.tailwindcss.com'],
+        // Allow styles from self, inline <style> tags, Tailwind CDN and Google Fonts.
+        'style-src': ["'self'", "'unsafe-inline'", 'https://cdn.tailwindcss.com', 'https://fonts.googleapis.com'],
+        // Permit fonts from self and Google Fonts CDN.  Without this the
+        // Inter font will be blocked.
+        'font-src': ["'self'", 'https://fonts.gstatic.com'],
+        // Allow images from self as well as data and blob URIs (used by
+        // screenshots/artifacts).  Adjust if you embed other external images.
+        'img-src': ["'self'", 'data:', 'blob:'],
+        // Specify where connections (XHR/WebSocket) can be made.  We allow our
+        // own server and WebSocket endpoint.  Socket.IO will use these to
+        // communicate between the front‑end and back‑end.
+        'connect-src': ["'self'", 'http://localhost:3000', 'ws://localhost:3000'],
+        // Default fallback for other resource types.
+        'default-src': ["'self'"],
+      },
+    },
+  }),
+);
 
 // Gzip/deflate compress all responses
 app.use(compression());
@@ -82,6 +118,20 @@ app.use(express.static(config.frontendPath));
 // Mount API routes and provide the socket.io instance.  The
 // implementation of routes returns a configured router.
 app.use('/api', apiRoutes(io));
+
+// -------------------------------------------------------------
+// Special Routes
+// -------------------------------------------------------------
+
+// Chrome DevTools in recent versions issues a request for
+// `/.well-known/appspecific/com.chrome.devtools.json` when you open
+// DevTools on a page served via localhost.  This file is optional and
+// used to discover certain debugging features.  Our application does not
+// provide it, but to prevent unnecessary stack traces in the logs we
+// respond with 204 (No Content) instead of letting the 404 handler run.
+app.get('/.well-known/appspecific/com.chrome.devtools.json', (req, res) => {
+  res.status(204).end();
+});
 
 // Serve the main frontend page for the root path.  Without this
 // fallback, navigating to '/' would trigger the 404 handler and return

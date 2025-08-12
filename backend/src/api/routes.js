@@ -34,6 +34,8 @@ const upload = multer({
 });
 
 const router = express.Router();
+// Import test service for managing test definitions
+const { getAllTests, getTestById, saveTest } = require('../services/test_service');
 
 /**
  * Defines all API routes.  The returned function accepts the Socket.IO
@@ -77,6 +79,117 @@ const routes = (io) => {
         // executor already emits error events via Socket.IO.
         console.error('Unhandled error in test execution:', err);
       });
+  });
+
+  /**
+   * GET /api/tests
+   * Returns a list of available test definitions.  Accepts an optional
+   * `tag` query parameter to filter tests by tag.  Each item in the
+   * response contains the test id, name, and tags.
+   */
+  router.get('/tests', (req, res) => {
+    try {
+      const tag = req.query.tag;
+      const tests = getAllTests(tag);
+      res.status(200).json({ tests });
+    } catch (err) {
+      console.error('Failed to list tests:', err);
+      res.status(500).json({ message: 'Unable to list tests' });
+    }
+  });
+
+  /**
+   * GET /api/tests/:id
+   * Returns the full definition of a single test, including its steps.  If the
+   * test does not exist, responds with 404.
+   */
+  router.get('/tests/:id', (req, res) => {
+    const { id } = req.params;
+    const test = getTestById(id);
+    if (!test) {
+      return res.status(404).json({ message: 'Test not found' });
+    }
+    res.status(200).json({ test });
+  });
+
+  /**
+   * POST /api/tests
+   * Create a new test definition.  Expects a JSON body with `name`,
+   * `tags` (array of strings) and `steps` (array of strings).  The test
+   * is saved to the tests directory and a unique id is generated.  The
+   * response contains the generated id.
+   */
+  router.post('/tests', (req, res) => {
+    const { name, tags, steps } = req.body || {};
+    try {
+      const id = saveTest({ name, tags, steps });
+      res.status(201).json({ id, message: 'Test created successfully' });
+    } catch (err) {
+      console.error('Failed to save test:', err);
+      res.status(400).json({ message: err.message || 'Invalid test definition' });
+    }
+  });
+
+  /**
+   * POST /api/run-tests
+   * Run one or more existing test definitions.  Accepts the same
+   * parameters as /run-test plus `testIds`, which can be a JSON array or
+   * comma-separated string of test ids.  The specified tests will be
+   * executed sequentially.  Only one APK file is required; it will be
+   * reused for each test.  Returns immediately with a 200 status; test
+   * progress and completion events are emitted via Socket.IO.
+   */
+  router.post('/run-tests', upload.single('apkFile'), (req, res) => {
+    let testIds = req.body.testIds;
+    const apkFile = req.file;
+    const socketId = req.body.socketId;
+    const aiService = req.body.aiService || 'gemini';
+    const testEnvironment = req.body.testEnvironment || 'local';
+
+    if (!apkFile || !testIds || !socketId) {
+      return res.status(400).json({ message: 'Missing APK file, test IDs, or socket ID.' });
+    }
+
+    // Parse testIds which may be provided as JSON string or comma-separated values
+    if (typeof testIds === 'string') {
+      try {
+        testIds = JSON.parse(testIds);
+      } catch (err) {
+        testIds = testIds.split(',').map((s) => s.trim()).filter(Boolean);
+      }
+    }
+    if (!Array.isArray(testIds) || testIds.length === 0) {
+      return res.status(400).json({ message: 'testIds must be an array of test identifiers.' });
+    }
+
+    console.log(
+      `Received multi-test request for tests: ${testIds.join(', ')} from socket: ${socketId} using AI service: ${aiService} on environment: ${testEnvironment}`,
+    );
+    if (apkFile) console.log('APK File:', apkFile.filename);
+
+    res.status(200).json({
+      message: 'Test run request received and is being processed.',
+      file: apkFile.filename,
+    });
+
+    // Helper to run tests sequentially
+    async function runSequential() {
+      for (const testId of testIds) {
+        const testDef = getTestById(testId);
+        if (!testDef) {
+          console.warn(`Test definition ${testId} not found. Skipping.`);
+          continue;
+        }
+        const rawSteps = testDef.steps.join('\n');
+        try {
+          await executeTest(apkFile.path, rawSteps, io, socketId, aiService, testEnvironment);
+        } catch (err) {
+          console.error(`Error executing test ${testId}:`, err);
+          // Continue to next test; errors will be emitted via socket events
+        }
+      }
+    }
+    runSequential().catch((err) => console.error('Error running tests sequentially:', err));
   });
 
   return router;
