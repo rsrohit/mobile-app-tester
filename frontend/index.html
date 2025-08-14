@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,27 +22,50 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* A lighter gray background */
+            background-color: #f8fafc;
+            /* A lighter gray background */
         }
+
         .step-card {
             transition: all 0.3s ease;
             border-left-width: 4px;
         }
-        .step-card.status-pending { border-left-color: #94a3b8; }
-        .step-card.status-running { border-left-color: #3b82f6; }
-        .step-card.status-passed { border-left-color: #22c55e; }
-        .step-card.status-failed { border-left-color: #ef4444; }
+
+        .step-card.status-pending {
+            border-left-color: #94a3b8;
+        }
+
+        .step-card.status-running {
+            border-left-color: #3b82f6;
+        }
+
+        .step-card.status-passed {
+            border-left-color: #22c55e;
+        }
+
+        .step-card.status-failed {
+            border-left-color: #ef4444;
+        }
 
         /* Skeleton Loading Animation */
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: .5; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: .5;
+            }
         }
+
         .skeleton-loader {
             animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
     </style>
 </head>
+
 <body class="text-slate-800">
 
     <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
@@ -54,7 +78,8 @@
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
             <!-- Left Column: Configuration -->
             <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
-                <h2 class="text-2xl font-semibold mb-6 border-b border-slate-200 pb-4 text-slate-900">1. Configuration</h2>
+                <h2 class="text-2xl font-semibold mb-6 border-b border-slate-200 pb-4 text-slate-900">1. Configuration
+                </h2>
 
                 <!-- Test Environment Selection -->
                 <div class="mb-6">
@@ -62,12 +87,16 @@
                     <fieldset class="mt-2 bg-slate-50 p-3 rounded-lg">
                         <div class="flex items-center justify-around">
                             <div class="flex items-center">
-                                <input id="local-radio" name="test-environment" type="radio" value="local" checked class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
-                                <label for="local-radio" class="ml-2 block text-sm font-medium text-slate-700">Local</label>
+                                <input id="local-radio" name="test-environment" type="radio" value="local" checked
+                                    class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                <label for="local-radio"
+                                    class="ml-2 block text-sm font-medium text-slate-700">Local</label>
                             </div>
                             <div class="flex items-center">
-                                <input id="browserstack-radio" name="test-environment" type="radio" value="browserstack" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
-                                <label for="browserstack-radio" class="ml-2 block text-sm font-medium text-slate-700">BrowserStack</label>
+                                <input id="browserstack-radio" name="test-environment" type="radio" value="browserstack"
+                                    class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                <label for="browserstack-radio"
+                                    class="ml-2 block text-sm font-medium text-slate-700">BrowserStack</label>
                             </div>
                         </div>
                     </fieldset>
@@ -79,12 +108,16 @@
                     <fieldset class="mt-2 bg-slate-50 p-3 rounded-lg">
                         <div class="flex items-center justify-around">
                             <div class="flex items-center">
-                                <input id="gemini-radio" name="ai-service" type="radio" value="gemini" checked class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
-                                <label for="gemini-radio" class="ml-2 block text-sm font-medium text-slate-700">Gemini</label>
+                                <input id="gemini-radio" name="ai-service" type="radio" value="gemini" checked
+                                    class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                <label for="gemini-radio"
+                                    class="ml-2 block text-sm font-medium text-slate-700">Gemini</label>
                             </div>
                             <div class="flex items-center">
-                                <input id="deepseek-radio" name="ai-service" type="radio" value="deepseek" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
-                                <label for="deepseek-radio" class="ml-2 block text-sm font-medium text-slate-700">Deepseek</label>
+                                <input id="deepseek-radio" name="ai-service" type="radio" value="deepseek"
+                                    class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                <label for="deepseek-radio"
+                                    class="ml-2 block text-sm font-medium text-slate-700">Deepseek</label>
                             </div>
                         </div>
                     </fieldset>
@@ -96,12 +129,16 @@
                     <fieldset class="mt-2 bg-slate-50 p-3 rounded-lg">
                         <div class="flex items-center justify-around">
                             <div class="flex items-center">
-                                <input id="mode-steps" name="execution-mode" type="radio" value="manual" checked class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
-                                <label for="mode-steps" class="ml-2 block text-sm font-medium text-slate-700">Enter Steps</label>
+                                <input id="mode-steps" name="execution-mode" type="radio" value="manual" checked
+                                    class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                <label for="mode-steps" class="ml-2 block text-sm font-medium text-slate-700">Enter
+                                    Steps</label>
                             </div>
                             <div class="flex items-center">
-                                <input id="mode-saved" name="execution-mode" type="radio" value="saved" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
-                                <label for="mode-saved" class="ml-2 block text-sm font-medium text-slate-700">Saved Tests</label>
+                                <input id="mode-saved" name="execution-mode" type="radio" value="saved"
+                                    class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                <label for="mode-saved" class="ml-2 block text-sm font-medium text-slate-700">Saved
+                                    Tests</label>
                             </div>
                         </div>
                     </fieldset>
@@ -109,22 +146,34 @@
 
                 <!-- APK File Upload -->
                 <div class="mb-6">
-                    <label for="apk-file-input" class="block text-base font-medium text-slate-700 mb-2">Upload .apk File</label>
-                    <div id="apk-dropzone" class="flex justify-center items-center w-full h-40 px-6 py-10 border-2 border-slate-300 border-dashed rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer">
-                        <div class="text-center">
-                            <svg class="mx-auto h-10 w-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    <label for="apk-file-input" class="block text-base font-medium text-slate-700 mb-2">Upload .apk
+                        File</label>
+                    <!-- Dropzone with file input overlay.  The file input covers the entire dropzone (absolute/opacity-0)
+                         to guarantee the file dialog opens on click in all browsers.  The inner content has pointer-events
+                         disabled so clicks pass through to the input. -->
+                    <div id="apk-dropzone"
+                        class="relative flex justify-center items-center w-full h-40 px-6 py-10 border-2 border-slate-300 border-dashed rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
+                        <div class="text-center pointer-events-none">
+                            <svg class="mx-auto h-10 w-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                             </svg>
-                            <p id="apk-filename" class="mt-2 text-sm text-slate-600"><span class="font-semibold text-blue-600">Click to upload</span> or drag & drop</p>
+                            <p id="apk-filename" class="mt-2 text-sm text-slate-600"><span
+                                    class="font-semibold text-blue-600">Click to upload</span> or drag & drop</p>
                         </div>
-                        <input id="apk-file-input" type="file" class="hidden" accept=".apk">
+                        <input id="apk-file-input" type="file" accept=".apk"
+                            class="absolute inset-0 opacity-0 cursor-pointer" />
                     </div>
                 </div>
 
                 <!-- Manual Test Steps Section (visible in manual mode) -->
                 <div id="manual-steps-section">
-                    <label for="test-steps" class="block text-base font-medium text-slate-700 mb-2">Enter Test Steps</label>
-                    <textarea id="test-steps" name="test-steps" rows="10" class="w-full p-4 border border-slate-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow" placeholder="1. Launch the app&#10;2. Wait for app to load the login page.&#10;3. Click on the 'Login' button..."></textarea>
+                    <label for="test-steps" class="block text-base font-medium text-slate-700 mb-2">Enter Test
+                        Steps</label>
+                    <textarea id="test-steps" name="test-steps" rows="10"
+                        class="w-full p-4 border border-slate-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                        placeholder="1. Launch the app&#10;2. Wait for app to load the login page.&#10;3. Click on the 'Login' button..."></textarea>
                 </div>
 
                 <!-- Saved Tests Section (visible in saved mode) -->
@@ -139,18 +188,25 @@
                         </select>
                     </div>
                     <div class="flex items-center gap-2 mb-2">
-                        <button id="refresh-tests-btn" type="button" class="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">Refresh Tests</button>
-                        <button id="create-test-btn" type="button" class="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-300">Create Test</button>
+                        <button id="refresh-tests-btn" type="button"
+                            class="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">Refresh
+                            Tests</button>
+                        <button id="create-test-btn" type="button"
+                            class="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-300">Create
+                            Test</button>
                     </div>
-                    <select id="test-select" multiple size="5" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <select id="test-select" multiple size="5"
+                        class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <!-- Options populated dynamically -->
                     </select>
-                    <p class="text-sm text-slate-500 mt-1">Select one or more saved tests to run. Leave all unselected to use manual steps.</p>
+                    <p class="text-sm text-slate-500 mt-1">Select one or more saved tests to run. Leave all unselected
+                        to use manual steps.</p>
                 </div>
 
                 <!-- Run Test Button -->
                 <div class="mt-8">
-                    <button id="run-test-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all shadow-md hover:shadow-lg disabled:bg-slate-400 disabled:cursor-not-allowed">
+                    <button id="run-test-btn"
+                        class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all shadow-md hover:shadow-lg disabled:bg-slate-400 disabled:cursor-not-allowed">
                         Run Test
                     </button>
                 </div>
@@ -158,11 +214,15 @@
 
             <!-- Right Column: Results -->
             <div class="lg:col-span-3 bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
-                <h2 class="text-2xl font-semibold mb-6 border-b border-slate-200 pb-4 text-slate-900">2. Test Results</h2>
+                <h2 class="text-2xl font-semibold mb-6 border-b border-slate-200 pb-4 text-slate-900">2. Test Results
+                </h2>
                 <div id="results-container" class="space-y-3 h-[calc(100%-4rem)] overflow-y-auto pr-2">
-                    <div id="results-placeholder" class="text-center py-20 h-full flex flex-col justify-center items-center">
-                        <svg class="mx-auto h-16 w-16 text-slate-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                           <path stroke-linecap="round" stroke-linejoin="round" d="M10.125 2.25h-4.5c-1.125 0-2.25.9-2.25 2.25v15c0 1.125.9 2.25 2.25 2.25h10.5c1.125 0 2.25-.9 2.25-2.25v-15c0-1.125-.9-2.25-2.25-2.25h-4.5m-7.5 12h15m-12-4h.008v.008H5.625v-.008zm1.5 0h.008v.008H7.125v-.008zm1.5 0h.008v.008H8.625v-.008zm1.5 0h.008v.008H10.125v-.008zm1.5 0h.008v.008H11.625v-.008zm1.5 0h.008v.008H13.125v-.008zm1.5 0h.008v.008H14.625v-.008zm1.5 0h.008v.008H16.125v-.008zm1.5 0h.008v.008H17.625v-.008zm1.5 0h.008v.008H19.125v-.008zm-15-4h.008v.008H4.125v-.008zm1.5 0h.008v.008H5.625v-.008zm1.5 0h.008v.008H7.125v-.008zm1.5 0h.008v.008H8.625v-.008zm1.5 0h.008v.008H10.125v-.008zm1.5 0h.008v.008H11.625v-.008zm1.5 0h.008v.008H13.125v-.008zm1.5 0h.008v.008H14.625v-.008zm1.5 0h.008v.008H16.125v-.008zm1.5 0h.008v.008H17.625v-.008zm1.5 0h.008v.008H19.125v-.008z" />
+                    <div id="results-placeholder"
+                        class="text-center py-20 h-full flex flex-col justify-center items-center">
+                        <svg class="mx-auto h-16 w-16 text-slate-300" xmlns="http://www.w3.org/2000/svg" fill="none"
+                            viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M10.125 2.25h-4.5c-1.125 0-2.25.9-2.25 2.25v15c0 1.125.9 2.25 2.25 2.25h10.5c1.125 0 2.25-.9 2.25-2.25v-15c0-1.125-.9-2.25-2.25-2.25h-4.5m-7.5 12h15m-12-4h.008v.008H5.625v-.008zm1.5 0h.008v.008H7.125v-.008zm1.5 0h.008v.008H8.625v-.008zm1.5 0h.008v.008H10.125v-.008zm1.5 0h.008v.008H11.625v-.008zm1.5 0h.008v.008H13.125v-.008zm1.5 0h.008v.008H14.625v-.008zm1.5 0h.008v.008H16.125v-.008zm1.5 0h.008v.008H17.625v-.008zm1.5 0h.008v.008H19.125v-.008zm-15-4h.008v.008H4.125v-.008zm1.5 0h.008v.008H5.625v-.008zm1.5 0h.008v.008H7.125v-.008zm1.5 0h.008v.008H8.625v-.008zm1.5 0h.008v.008H10.125v-.008zm1.5 0h.008v.008H11.625v-.008zm1.5 0h.008v.008H13.125v-.008zm1.5 0h.008v.008H14.625v-.008zm1.5 0h.008v.008H16.125v-.008zm1.5 0h.008v.008H17.625v-.008zm1.5 0h.008v.008H19.125v-.008z" />
                         </svg>
                         <p class="mt-4 text-lg text-slate-500">Test results will appear here.</p>
                     </div>
@@ -171,317 +231,377 @@
         </div>
     </div>
 
+    <!-- Modal for Creating a New Test -->
+    <div id="create-test-modal"
+        class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
+        <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-lg">
+            <h3 class="text-xl font-semibold mb-4 text-slate-900">Create New Test</h3>
+            <div class="mb-4">
+                <label for="new-test-name" class="block text-sm font-medium text-slate-700 mb-1">Test Name</label>
+                <input id="new-test-name" type="text"
+                    class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter test name" />
+            </div>
+            <div class="mb-4">
+                <label for="new-test-tags" class="block text-sm font-medium text-slate-700 mb-1">Tags (comma
+                    separated)</label>
+                <input id="new-test-tags" type="text"
+                    class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="smoke, regression" />
+            </div>
+            <div class="mb-4">
+                <label for="new-test-steps" class="block text-sm font-medium text-slate-700 mb-1">Steps</label>
+                <textarea id="new-test-steps" rows="6"
+                    class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter each step on a new line"></textarea>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button id="cancel-create-test-btn" type="button"
+                    class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">Cancel</button>
+                <button id="save-create-test-btn" type="button"
+                    class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 
+      FIX: All application JavaScript is now wrapped in a single DOMContentLoaded
+      event listener. This ensures that all external scripts (like socket.io.js)
+      are fully loaded and parsed before our code attempts to use them,
+      preventing the "io is not defined" ReferenceError.
+    -->
     <script>
-        // --- DOM Element References ---
-        const apkDropzone = document.getElementById('apk-dropzone');
-        const apkFileInput = document.getElementById('apk-file-input');
-        const apkFilenameDisplay = document.getElementById('apk-filename');
-        const testStepsTextarea = document.getElementById('test-steps');
-        const runTestBtn = document.getElementById('run-test-btn');
-        const resultsContainer = document.getElementById('results-container');
-        const resultsPlaceholder = document.getElementById('results-placeholder');
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Element References ---
+            const apkDropzone = document.getElementById('apk-dropzone');
+            const apkFileInput = document.getElementById('apk-file-input');
+            const apkFilenameDisplay = document.getElementById('apk-filename');
+            const testStepsTextarea = document.getElementById('test-steps');
+            const runTestBtn = document.getElementById('run-test-btn');
+            const resultsContainer = document.getElementById('results-container');
+            const resultsPlaceholder = document.getElementById('results-placeholder');
 
-        // Saved tests UI references
-        const testSelect = document.getElementById('test-select');
-        const refreshTestsBtn = document.getElementById('refresh-tests-btn');
-        const createTestBtn = document.getElementById('create-test-btn');
-        const tagFilterSelect = document.getElementById('tag-filter');
-        const manualStepsSection = document.getElementById('manual-steps-section');
-        const savedTestsSection = document.getElementById('saved-tests-section');
-        const executionModeRadios = document.querySelectorAll('input[name="execution-mode"]');
-        // In‑memory map of saved tests keyed by id for quick lookup
-        let savedTests = {};
+            // Saved tests UI references
+            const testSelect = document.getElementById('test-select');
+            const refreshTestsBtn = document.getElementById('refresh-tests-btn');
+            const createTestBtn = document.getElementById('create-test-btn');
+            const tagFilterSelect = document.getElementById('tag-filter');
+            const manualStepsSection = document.getElementById('manual-steps-section');
+            const savedTestsSection = document.getElementById('saved-tests-section');
+            const executionModeRadios = document.querySelectorAll('input[name="execution-mode"]');
+            // In‑memory map of saved tests keyed by id for quick lookup
+            let savedTests = {};
 
-        // --- WebSocket Connection ---
-        const socket = io("http://localhost:3000");
+            // --- WebSocket Connection ---
+            const socket = io("http://localhost:3000");
 
-        socket.on('connect', () => {
-            console.log('Connected to backend server with socket ID:', socket.id);
-        });
+            socket.on('connect', () => {
+                console.log('Connected to backend server with socket ID:', socket.id);
+            });
 
-        socket.on('step-update', (data) => {
-            console.log('Received step update:', data);
-            const stepCard = document.querySelector(`#step-card-${data.stepNumber}`);
-            if(stepCard) {
-                updateStepStatus(stepCard, data.status, data);
-            }
-        });
-        
-        socket.on('test-complete', (data) => {
-            console.log('Test complete:', data.message);
-            runTestBtn.disabled = false;
-            runTestBtn.textContent = 'Run Test';
-        });
-
-        socket.on('test-error', (data) => {
-            console.error('Test error:', data.message);
-            alert(`A test error occurred: ${data.message}`);
-            runTestBtn.disabled = false;
-            runTestBtn.textContent = 'Run Test';
-        });
-
-        // --- Saved Tests Functions ---
-        /**
-         * Load saved tests from the backend and populate the multi‑select
-         * dropdown.  Also updates the savedTests map for quick lookup.
-         */
-        async function loadSavedTests() {
-            try {
-                const response = await fetch('http://localhost:3000/api/tests');
-                const data = await response.json();
-                if (!response.ok) {
-                    throw new Error(data.message || 'Failed to load tests');
+            socket.on('step-update', (data) => {
+                console.log('Received step update:', data);
+                const stepCard = document.querySelector(`#step-card-${data.stepNumber}`);
+                if (stepCard) {
+                    updateStepStatus(stepCard, data.status, data);
                 }
-                // Clear existing options and map
+            });
+
+            socket.on('test-complete', (data) => {
+                console.log('Test complete:', data.message);
+                runTestBtn.disabled = false;
+                runTestBtn.textContent = 'Run Test';
+            });
+
+            socket.on('test-error', (data) => {
+                console.error('Test error:', data.message);
+                alert(`A test error occurred: ${data.message}`);
+                runTestBtn.disabled = false;
+                runTestBtn.textContent = 'Run Test';
+            });
+
+            // --- Saved Tests Functions ---
+            /**
+             * Load saved tests from the backend and populate the multi‑select
+             * dropdown.  Also updates the savedTests map for quick lookup.
+             */
+            async function loadSavedTests() {
+                try {
+                    const response = await fetch('http://localhost:3000/api/tests');
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.message || 'Failed to load tests');
+                    }
+                    // Clear existing options and map
+                    testSelect.innerHTML = '';
+                    savedTests = {};
+                    // Clear and repopulate tag filter options
+                    tagFilterSelect.innerHTML = '';
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = 'All';
+                    tagFilterSelect.appendChild(defaultOption);
+                    const tests = data.tests || [];
+                    // Temporary set to collect unique tags
+                    const allTagsSet = new Set();
+                    // For each test summary, fetch its full definition so we have
+                    // access to the steps array for skeleton calculation.  This
+                    // makes multiple requests but ensures we have up‑to‑date
+                    // information.  In a larger system you could add an API
+                    // endpoint to return tests with steps in a single call.
+                    for (const t of tests) {
+                        try {
+                            const detailResp = await fetch(`http://localhost:3000/api/tests/${t.id}`);
+                            const detailData = await detailResp.json();
+                            if (!detailResp.ok) {
+                                throw new Error(detailData.message || 'Error fetching test details');
+                            }
+                            const testDef = detailData.test;
+                            savedTests[t.id] = testDef;
+                            // Accumulate tags
+                            if (Array.isArray(testDef.tags)) {
+                                testDef.tags.forEach((tag) => allTagsSet.add(tag));
+                            }
+                            const option = document.createElement('option');
+                            option.value = testDef.id;
+                            option.textContent = `${testDef.name} [${(testDef.tags || []).join(', ')}]`;
+                            testSelect.appendChild(option);
+                        } catch (e) {
+                            console.warn('Error fetching test details for', t.id, e);
+                            // Fallback to summary if detail fails
+                            savedTests[t.id] = t;
+                            if (Array.isArray(t.tags)) {
+                                t.tags.forEach((tag) => allTagsSet.add(tag));
+                            }
+                            const option = document.createElement('option');
+                            option.value = t.id;
+                            option.textContent = `${t.name} [${(t.tags || []).join(', ')}]`;
+                            testSelect.appendChild(option);
+                        }
+                    }
+
+                    // Populate tag filter options
+                    allTagsSet.forEach((tag) => {
+                        const opt = document.createElement('option');
+                        opt.value = tag;
+                        opt.textContent = tag;
+                        tagFilterSelect.appendChild(opt);
+                    });
+                } catch (err) {
+                    console.error('Error loading tests:', err);
+                    alert(`Error loading saved tests: ${err.message}`);
+                }
+            }
+
+            // Event listener to refresh test list on button click
+            refreshTestsBtn.addEventListener('click', () => {
+                loadSavedTests();
+            });
+
+            // Show modal when create test button is clicked
+            createTestBtn.addEventListener('click', () => {
+                // Reset modal fields
+                document.getElementById('new-test-name').value = '';
+                document.getElementById('new-test-tags').value = '';
+                document.getElementById('new-test-steps').value = '';
+                document.getElementById('create-test-modal').classList.remove('hidden');
+            });
+
+            // Modal buttons for creating tests
+            const cancelCreateBtn = document.getElementById('cancel-create-test-btn');
+            const saveCreateBtn = document.getElementById('save-create-test-btn');
+
+            cancelCreateBtn.addEventListener('click', () => {
+                document.getElementById('create-test-modal').classList.add('hidden');
+            });
+
+            saveCreateBtn.addEventListener('click', async () => {
+                const name = document.getElementById('new-test-name').value.trim();
+                const tagsInput = document.getElementById('new-test-tags').value.trim();
+                const stepsInput = document.getElementById('new-test-steps').value.trim();
+                if (!name) {
+                    alert('Test name is required.');
+                    return;
+                }
+                if (!stepsInput) {
+                    alert('Please provide at least one step.');
+                    return;
+                }
+                const tags = tagsInput ? tagsInput.split(',').map((s) => s.trim()).filter((s) => s.length > 0) : [];
+                const steps = stepsInput.split(/\r?\n/).map((s) => s.trim()).filter((s) => s.length > 0);
+                if (steps.length === 0) {
+                    alert('Please provide at least one valid step.');
+                    return;
+                }
+                try {
+                    const response = await fetch('http://localhost:3000/api/tests', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, tags, steps }),
+                    });
+                    const result = await response.json();
+                    if (!response.ok) {
+                        throw new Error(result.message || 'Failed to create test');
+                    }
+                    alert(`Test created with ID: ${result.id}`);
+                    document.getElementById('create-test-modal').classList.add('hidden');
+                    loadSavedTests();
+                } catch (err) {
+                    console.error('Error creating test:', err);
+                    alert(`Error creating test: ${err.message}`);
+                }
+            });
+
+            // Load tests on page initialization
+            loadSavedTests();
+
+            // Tag filter change: filter testSelect options by selected tag
+            tagFilterSelect.addEventListener('change', () => {
+                const selectedTag = tagFilterSelect.value;
+                // Clear options and repopulate based on filter
                 testSelect.innerHTML = '';
-                savedTests = {};
-                // Clear and repopulate tag filter options
-                tagFilterSelect.innerHTML = '';
-                const defaultOption = document.createElement('option');
-                defaultOption.value = '';
-                defaultOption.textContent = 'All';
-                tagFilterSelect.appendChild(defaultOption);
-                const tests = data.tests || [];
-                // Temporary set to collect unique tags
-                const allTagsSet = new Set();
-                // For each test summary, fetch its full definition so we have
-                // access to the steps array for skeleton calculation.  This
-                // makes multiple requests but ensures we have up‑to‑date
-                // information.  In a larger system you could add an API
-                // endpoint to return tests with steps in a single call.
-                for (const t of tests) {
-                    try {
-                        const detailResp = await fetch(`http://localhost:3000/api/tests/${t.id}`);
-                        const detailData = await detailResp.json();
-                        if (!detailResp.ok) {
-                            throw new Error(detailData.message || 'Error fetching test details');
-                        }
-                        const testDef = detailData.test;
-                        savedTests[t.id] = testDef;
-                        // Accumulate tags
-                        if (Array.isArray(testDef.tags)) {
-                            testDef.tags.forEach((tag) => allTagsSet.add(tag));
-                        }
-                        const option = document.createElement('option');
-                        option.value = testDef.id;
-                        option.textContent = `${testDef.name} [${(testDef.tags || []).join(', ')}]`;
-                        testSelect.appendChild(option);
-                    } catch (e) {
-                        console.warn('Error fetching test details for', t.id, e);
-                        // Fallback to summary if detail fails
-                        savedTests[t.id] = t;
-                        if (Array.isArray(t.tags)) {
-                            t.tags.forEach((tag) => allTagsSet.add(tag));
-                        }
+                Object.values(savedTests).forEach((t) => {
+                    const include = !selectedTag || (Array.isArray(t.tags) && t.tags.includes(selectedTag));
+                    if (include) {
                         const option = document.createElement('option');
                         option.value = t.id;
                         option.textContent = `${t.name} [${(t.tags || []).join(', ')}]`;
                         testSelect.appendChild(option);
                     }
-                }
-
-                // Populate tag filter options
-                allTagsSet.forEach((tag) => {
-                    const opt = document.createElement('option');
-                    opt.value = tag;
-                    opt.textContent = tag;
-                    tagFilterSelect.appendChild(opt);
                 });
-            } catch (err) {
-                console.error('Error loading tests:', err);
-                alert(`Error loading saved tests: ${err.message}`);
-            }
-        }
+            });
 
-        // Event listener to refresh test list on button click
-        refreshTestsBtn.addEventListener('click', () => {
-            loadSavedTests();
-        });
-
-        // Show modal when create test button is clicked
-        createTestBtn.addEventListener('click', () => {
-            // Reset modal fields
-            document.getElementById('new-test-name').value = '';
-            document.getElementById('new-test-tags').value = '';
-            document.getElementById('new-test-steps').value = '';
-            document.getElementById('create-test-modal').classList.remove('hidden');
-        });
-
-        // Modal buttons for creating tests
-        const cancelCreateBtn = document.getElementById('cancel-create-test-btn');
-        const saveCreateBtn = document.getElementById('save-create-test-btn');
-
-        cancelCreateBtn.addEventListener('click', () => {
-            document.getElementById('create-test-modal').classList.add('hidden');
-        });
-
-        saveCreateBtn.addEventListener('click', async () => {
-            const name = document.getElementById('new-test-name').value.trim();
-            const tagsInput = document.getElementById('new-test-tags').value.trim();
-            const stepsInput = document.getElementById('new-test-steps').value.trim();
-            if (!name) {
-                alert('Test name is required.');
-                return;
-            }
-            if (!stepsInput) {
-                alert('Please provide at least one step.');
-                return;
-            }
-            const tags = tagsInput ? tagsInput.split(',').map((s) => s.trim()).filter((s) => s.length > 0) : [];
-            const steps = stepsInput.split(/\r?\n/).map((s) => s.trim()).filter((s) => s.length > 0);
-            if (steps.length === 0) {
-                alert('Please provide at least one valid step.');
-                return;
-            }
-            try {
-                const response = await fetch('http://localhost:3000/api/tests', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, tags, steps }),
-                });
-                const result = await response.json();
-                if (!response.ok) {
-                    throw new Error(result.message || 'Failed to create test');
+            // --- Event Listeners for File Upload ---
+            // No need for a click handler on the dropzone because the file input overlay
+            // handles clicks automatically.  We still handle drag events to provide
+            // visual feedback and assign dropped files to the hidden input.
+            apkDropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                apkDropzone.classList.add('border-blue-500', 'bg-blue-50');
+            });
+            apkDropzone.addEventListener('dragleave', () => {
+                apkDropzone.classList.remove('border-blue-500', 'bg-blue-50');
+            });
+            apkDropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                apkDropzone.classList.remove('border-blue-500', 'bg-blue-50');
+                if (e.dataTransfer.files.length) {
+                    apkFileInput.files = e.dataTransfer.files;
+                    handleFileSelect(apkFileInput.files[0]);
                 }
-                alert(`Test created with ID: ${result.id}`);
-                document.getElementById('create-test-modal').classList.add('hidden');
-                loadSavedTests();
-            } catch (err) {
-                console.error('Error creating test:', err);
-                alert(`Error creating test: ${err.message}`);
-            }
-        });
+            });
+            apkFileInput.addEventListener('change', () => {
+                if (apkFileInput.files.length) {
+                    handleFileSelect(apkFileInput.files[0]);
+                }
+            });
 
-        // Load tests on page initialization
-        window.addEventListener('DOMContentLoaded', () => {
-            loadSavedTests();
-        });
-
-        // Execution mode toggle: show/hide sections based on selected mode
-        executionModeRadios.forEach((radio) => {
-            radio.addEventListener('change', () => {
-                if (!radio.checked) return;
-                // When switching modes, toggle visibility of manual vs saved sections
-                if (radio.value === 'manual') {
-                    manualStepsSection.classList.remove('hidden');
-                    savedTestsSection.classList.add('hidden');
-                    // Deselect any previously selected saved tests so they don't inadvertently run
-                    Array.from(testSelect.options).forEach((opt) => {
-                        opt.selected = false;
-                    });
+            function handleFileSelect(file) {
+                if (file && /\.apk$/i.test(file.name)) {
+                    // Show the selected file name in blue for a valid APK
+                    apkFilenameDisplay.innerHTML = `<span class="font-semibold text-blue-600">${file.name}</span>`;
                 } else {
-                    manualStepsSection.classList.add('hidden');
-                    savedTestsSection.classList.remove('hidden');
-                    // Clear manual steps text area when switching to saved mode
-                    testStepsTextarea.value = '';
+                    // Display an error message when the file is not an APK
+                    apkFilenameDisplay.innerHTML = `<span class="font-semibold text-red-600">Invalid file. Please select a .apk file.</span>`;
                 }
-            });
-        });
+            }
 
-        // Tag filter change: filter testSelect options by selected tag
-        tagFilterSelect.addEventListener('change', () => {
-            const selectedTag = tagFilterSelect.value;
-            // Clear options and repopulate based on filter
-            testSelect.innerHTML = '';
-            Object.values(savedTests).forEach((t) => {
-                const include = !selectedTag || (Array.isArray(t.tags) && t.tags.includes(selectedTag));
-                if (include) {
-                    const option = document.createElement('option');
-                    option.value = t.id;
-                    option.textContent = `${t.name} [${(t.tags || []).join(', ')}]`;
-                    testSelect.appendChild(option);
+            // --- Run Test Button Logic ---
+            runTestBtn.addEventListener('click', async () => {
+                const apkFile = apkFileInput.files[0];
+                const manualSteps = testStepsTextarea.value.trim();
+                const selectedAiService = document.querySelector('input[name="ai-service"]:checked').value;
+                const selectedEnvironment = document.querySelector('input[name="test-environment"]:checked').value;
+                const selectedTestIds = Array.from(document.getElementById('test-select').selectedOptions).map((opt) => opt.value);
+
+                if (!socket.connected) {
+                    alert('Not connected to the server. Please wait or refresh the page.');
+                    return;
                 }
-            });
-        });
+                if (!apkFile || !/\.apk$/i.test(apkFile.name)) {
+                    alert('Please upload a valid .apk file.');
+                    return;
+                }
 
-        // --- Event Listeners for File Upload ---
-        apkDropzone.addEventListener('click', () => apkFileInput.click());
-        apkDropzone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            apkDropzone.classList.add('border-blue-500', 'bg-blue-50');
-        });
-        apkDropzone.addEventListener('dragleave', () => {
-            apkDropzone.classList.remove('border-blue-500', 'bg-blue-50');
-        });
-        apkDropzone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            apkDropzone.classList.remove('border-blue-500', 'bg-blue-50');
-            if (e.dataTransfer.files.length) {
-                apkFileInput.files = e.dataTransfer.files;
-                handleFileSelect(apkFileInput.files[0]);
-            }
-        });
-        apkFileInput.addEventListener('change', () => {
-            if (apkFileInput.files.length) {
-                handleFileSelect(apkFileInput.files[0]);
-            }
-        });
+                // Determine whether to run saved tests or manual steps
+                const runSavedTests = selectedTestIds.length > 0;
+                if (!runSavedTests && !manualSteps) {
+                    alert('Please enter test steps or select saved tests to run.');
+                    return;
+                }
 
-        function handleFileSelect(file) {
-            if (file && file.name.endsWith('.apk')) {
-                apkFilenameDisplay.innerHTML = `<span class="font-semibold text-blue-600">${file.name}</span>`;
-            } else {
-                apkFilenameDisplay.innerHTML = `<span class="font-semibold text-red-600">Invalid file. Please select a .apk file.</span>`;
-            }
-        }
+                runTestBtn.disabled = true;
+                runTestBtn.textContent = runSavedTests ? 'Running Saved Tests...' : 'Running Test...';
+                resultsPlaceholder.style.display = 'none';
+                resultsContainer.innerHTML = '';
 
-        // --- Run Test Button Logic ---
-        runTestBtn.addEventListener('click', async () => {
-            const apkFile = apkFileInput.files[0];
-            const manualSteps = testStepsTextarea.value.trim();
-            const selectedAiService = document.querySelector('input[name="ai-service"]:checked').value;
-            const selectedEnvironment = document.querySelector('input[name="test-environment"]:checked').value;
-            const selectedTestIds = Array.from(document.getElementById('test-select').selectedOptions).map((opt) => opt.value);
+                if (runSavedTests) {
+                    // Flatten steps from all selected tests into an array of objects
+                    const stepObjects = [];
+                    selectedTestIds.forEach((id) => {
+                        const testDef = savedTests[id];
+                        if (testDef && Array.isArray(testDef.steps)) {
+                            testDef.steps.forEach((step) => {
+                                stepObjects.push({ testName: testDef.name, step: step });
+                            });
+                        } else {
+                            // Fallback: unknown steps length
+                            stepObjects.push({ testName: id, step: '' });
+                        }
+                    });
+                    // Show skeleton loaders for each step
+                    stepObjects.forEach((_, idx) => {
+                        const skeletonElement = createSkeletonCard(idx + 1);
+                        resultsContainer.appendChild(skeletonElement);
+                    });
 
-            if (!socket.connected) {
-                alert('Not connected to the server. Please wait or refresh the page.');
-                return;
-            }
-            if (!apkFile || !apkFile.name.endsWith('.apk')) {
-                alert('Please upload a valid .apk file.');
-                return;
-            }
-
-            // Determine whether to run saved tests or manual steps
-            const runSavedTests = selectedTestIds.length > 0;
-            if (!runSavedTests && !manualSteps) {
-                alert('Please enter test steps or select saved tests to run.');
-                return;
-            }
-
-            runTestBtn.disabled = true;
-            runTestBtn.textContent = runSavedTests ? 'Running Saved Tests...' : 'Running Test...';
-            resultsPlaceholder.style.display = 'none';
-            resultsContainer.innerHTML = '';
-
-            if (runSavedTests) {
-                // Flatten steps from all selected tests into an array of objects
-                const stepObjects = [];
-                selectedTestIds.forEach((id) => {
-                    const testDef = savedTests[id];
-                    if (testDef && Array.isArray(testDef.steps)) {
-                        testDef.steps.forEach((step) => {
-                            stepObjects.push({ testName: testDef.name, step: step });
+                    const formData = new FormData();
+                    formData.append('apkFile', apkFile);
+                    formData.append('testIds', JSON.stringify(selectedTestIds));
+                    formData.append('socketId', socket.id);
+                    formData.append('aiService', selectedAiService);
+                    formData.append('testEnvironment', selectedEnvironment);
+                    try {
+                        const response = await fetch('http://localhost:3000/api/run-tests', {
+                            method: 'POST',
+                            body: formData,
                         });
-                    } else {
-                        // Fallback: unknown steps length
-                        stepObjects.push({ testName: id, step: '' });
+                        const result = await response.json();
+                        if (!response.ok) {
+                            throw new Error(result.message || 'An error occurred during the test request.');
+                        }
+                        console.log('Multi-test request successful:', result.message);
+                        // Replace skeletons with actual step cards for saved tests
+                        resultsContainer.innerHTML = '';
+                        stepObjects.forEach((obj, idx) => {
+                            const label = obj.step ? `[${obj.testName}] ${obj.step}` : `[${obj.testName}] Step ${idx + 1}`;
+                            const stepElement = createStepCard(label, idx + 1);
+                            resultsContainer.appendChild(stepElement);
+                        });
+                    } catch (error) {
+                        console.error('Error sending multi-test request:', error);
+                        alert(`Error: ${error.message}`);
+                        runTestBtn.disabled = false;
+                        runTestBtn.textContent = 'Run Test';
                     }
-                });
-                // Show skeleton loaders for each step
-                stepObjects.forEach((_, idx) => {
-                    const skeletonElement = createSkeletonCard(idx + 1);
+                    return;
+                }
+
+                // Single/manual test run
+                const stepsArray = manualSteps.split('\n').filter((s) => s.trim() !== '');
+                // Show skeleton loaders for manual steps
+                stepsArray.forEach((stepText, index) => {
+                    const skeletonElement = createSkeletonCard(index + 1);
                     resultsContainer.appendChild(skeletonElement);
                 });
-
                 const formData = new FormData();
                 formData.append('apkFile', apkFile);
-                formData.append('testIds', JSON.stringify(selectedTestIds));
+                formData.append('testSteps', manualSteps);
                 formData.append('socketId', socket.id);
                 formData.append('aiService', selectedAiService);
                 formData.append('testEnvironment', selectedEnvironment);
                 try {
-                    const response = await fetch('http://localhost:3000/api/run-tests', {
+                    const response = await fetch('http://localhost:3000/api/run-test', {
                         method: 'POST',
                         body: formData,
                     });
@@ -489,143 +609,117 @@
                     if (!response.ok) {
                         throw new Error(result.message || 'An error occurred during the test request.');
                     }
-                    console.log('Multi-test request successful:', result.message);
-                    // Replace skeletons with actual step cards for saved tests
+                    // Replace skeletons with actual step cards for manual run
                     resultsContainer.innerHTML = '';
-                    stepObjects.forEach((obj, idx) => {
-                        const label = obj.step ? `[${obj.testName}] ${obj.step}` : `[${obj.testName}] Step ${idx + 1}`;
-                        const stepElement = createStepCard(label, idx + 1);
+                    stepsArray.forEach((stepText, index) => {
+                        const stepElement = createStepCard(stepText, index + 1);
                         resultsContainer.appendChild(stepElement);
                     });
+                    console.log('Test request successful:', result.message);
                 } catch (error) {
-                    console.error('Error sending multi-test request:', error);
+                    console.error('Error sending test request:', error);
                     alert(`Error: ${error.message}`);
                     runTestBtn.disabled = false;
                     runTestBtn.textContent = 'Run Test';
                 }
-                return;
-            }
-
-            // Single/manual test run
-            const stepsArray = manualSteps.split('\n').filter((s) => s.trim() !== '');
-            // Show skeleton loaders for manual steps
-            stepsArray.forEach((stepText, index) => {
-                const skeletonElement = createSkeletonCard(index + 1);
-                resultsContainer.appendChild(skeletonElement);
             });
-            const formData = new FormData();
-            formData.append('apkFile', apkFile);
-            formData.append('testSteps', manualSteps);
-            formData.append('socketId', socket.id);
-            formData.append('aiService', selectedAiService);
-            formData.append('testEnvironment', selectedEnvironment);
-            try {
-                const response = await fetch('http://localhost:3000/api/run-test', {
-                    method: 'POST',
-                    body: formData,
-                });
-                const result = await response.json();
-                if (!response.ok) {
-                    throw new Error(result.message || 'An error occurred during the test request.');
-                }
-                // Replace skeletons with actual step cards for manual run
-                resultsContainer.innerHTML = '';
-                stepsArray.forEach((stepText, index) => {
-                    const stepElement = createStepCard(stepText, index + 1);
-                    resultsContainer.appendChild(stepElement);
-                });
-                console.log('Test request successful:', result.message);
-            } catch (error) {
-                console.error('Error sending test request:', error);
-                alert(`Error: ${error.message}`);
-                runTestBtn.disabled = false;
-                runTestBtn.textContent = 'Run Test';
-            }
-        });
 
-        // --- UI Update Functions ---
-        function createSkeletonCard(stepNumber) {
-            const card = document.createElement('div');
-            card.className = 'skeleton-loader bg-white p-4 rounded-lg shadow-sm flex items-start space-x-4';
-            card.innerHTML = `
-                <div class="h-6 w-6 bg-slate-200 rounded-full"></div>
-                <div class="flex-1 space-y-2">
-                    <div class="h-4 bg-slate-200 rounded w-3/4"></div>
-                    <div class="h-3 bg-slate-200 rounded w-1/4"></div>
-                </div>
-            `;
-            return card;
-        }
-
-        function createStepCard(stepText, stepNumber) {
-            const card = document.createElement('div');
-            card.id = `step-card-${stepNumber}`;
-            card.className = 'step-card bg-white p-4 rounded-lg shadow-sm flex items-start space-x-4 status-pending';
-            card.innerHTML = `
-                <div class="status-icon pt-1">${getIcon('pending')}</div>
-                <div>
-                    <p class="font-medium text-slate-800">Step ${stepNumber}: <span class="font-normal text-slate-600">${stepText}</span></p>
-                    <p class="status-text text-sm text-slate-500">Pending</p>
-                    <div class="details text-sm text-slate-600 mt-2" style="display: none;"></div>
-                </div>
-            `;
-            return card;
-        }
-
-        function updateStepStatus(stepElement, status, data) {
-            stepElement.classList.remove('status-pending', 'status-running');
-            const statusIcon = stepElement.querySelector('.status-icon');
-            const statusText = stepElement.querySelector('.status-text');
-            const details = stepElement.querySelector('.details');
-            const isSuccess = status === 'passed';
-
-            stepElement.classList.add(`status-${status}`);
-            statusIcon.innerHTML = getIcon(status);
-            statusText.textContent = status.charAt(0).toUpperCase() + status.slice(1);
-            statusText.className = `status-text text-sm ${isSuccess ? 'text-green-600' : 'text-red-600'} font-medium`;
-
-            if (!isSuccess && data.details && data.details.error) {
-                details.style.display = 'block';
-                details.innerHTML = `
-                    <p class="font-semibold mt-2">Details:</p>
-                    <pre class="bg-slate-100 p-2 mt-1 rounded text-xs text-red-800">${data.details.error}</pre>
+            // --- UI Update Functions ---
+            function createSkeletonCard(stepNumber) {
+                const card = document.createElement('div');
+                card.className = 'skeleton-loader bg-white p-4 rounded-lg shadow-sm flex items-start space-x-4';
+                card.innerHTML = `
+                    <div class="h-6 w-6 bg-slate-200 rounded-full"></div>
+                    <div class="flex-1 space-y-2">
+                        <div class="h-4 bg-slate-200 rounded w-3/4"></div>
+                        <div class="h-3 bg-slate-200 rounded w-1/4"></div>
+                    </div>
                 `;
+                return card;
             }
-        }
 
-        function getIcon(status) {
-            const icons = {
-                pending: `<svg class="h-6 w-6 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
-                running: `<svg class="h-6 w-6 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`,
-                passed: `<svg class="h-6 w-6 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
-                failed: `<svg class="h-6 w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>`
-            };
-            return icons[status];
-        }
+            function createStepCard(stepText, stepNumber) {
+                const card = document.createElement('div');
+                card.id = `step-card-${stepNumber}`;
+                card.className = 'step-card bg-white p-4 rounded-lg shadow-sm flex items-start space-x-4 status-pending';
+                card.innerHTML = `
+                    <div class="status-icon pt-1">${getIcon('pending')}</div>
+                    <div>
+                        <p class="font-medium text-slate-800">Step ${stepNumber}: <span class="font-normal text-slate-600">${stepText}</span></p>
+                        <p class="status-text text-sm text-slate-500">Pending</p>
+                        <div class="details text-sm text-slate-600 mt-2" style="display: none;"></div>
+                    </div>
+                `;
+                return card;
+            }
+
+            function updateStepStatus(stepElement, status, data) {
+                stepElement.classList.remove('status-pending', 'status-running');
+                const statusIcon = stepElement.querySelector('.status-icon');
+                const statusText = stepElement.querySelector('.status-text');
+                const details = stepElement.querySelector('.details');
+                const isSuccess = status === 'passed';
+
+                stepElement.classList.add(`status-${status}`);
+                statusIcon.innerHTML = getIcon(status);
+                statusText.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+                statusText.className = `status-text text-sm ${isSuccess ? 'text-green-600' : 'text-red-600'} font-medium`;
+
+                if (!isSuccess && data.details && data.details.error) {
+                    details.style.display = 'block';
+                    details.innerHTML = `
+                        <p class="font-semibold mt-2">Details:</p>
+                        <pre class="bg-slate-100 p-2 mt-1 rounded text-xs text-red-800">${data.details.error}</pre>
+                    `;
+                }
+            }
+
+            function getIcon(status) {
+                const icons = {
+                    pending: `<svg class="h-6 w-6 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+                    running: `<svg class="h-6 w-6 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`,
+                    passed: `<svg class="h-6 w-6 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+                    failed: `<svg class="h-6 w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>`
+                };
+                return icons[status];
+            }
+
+            // === Execution mode toggle setup ===
+            function updateExecutionMode() {
+                const selectedRadio = document.querySelector('input[name="execution-mode"]:checked');
+                const mode = selectedRadio ? selectedRadio.value : 'manual';
+                const isManual = mode === 'manual';
+                const manualSection = document.getElementById('manual-steps-section');
+                const savedSection = document.getElementById('saved-tests-section');
+                const testSelectEl = document.getElementById('test-select');
+                const textarea = document.getElementById('test-steps');
+                if (manualSection && savedSection) {
+                    manualSection.classList.toggle('hidden', !isManual);
+                    savedSection.classList.toggle('hidden', isManual);
+                }
+                if (isManual) {
+                    // Deselect all saved test options
+                    if (testSelectEl) {
+                        Array.from(testSelectEl.options).forEach((opt) => {
+                            opt.selected = false;
+                        });
+                    }
+                } else {
+                    // Clear manual textarea when switching to saved mode
+                    if (textarea) {
+                        textarea.value = '';
+                    }
+                }
+            }
+
+            // Attach listeners to execution mode radios and perform an initial update
+            document.querySelectorAll('input[name="execution-mode"]').forEach((radio) => {
+                radio.addEventListener('change', updateExecutionMode);
+            });
+            updateExecutionMode();
+        });
     </script>
 
-    <!-- Modal for Creating a New Test -->
-    <div id="create-test-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
-        <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-lg">
-            <h3 class="text-xl font-semibold mb-4 text-slate-900">Create New Test</h3>
-            <div class="mb-4">
-                <label for="new-test-name" class="block text-sm font-medium text-slate-700 mb-1">Test Name</label>
-                <input id="new-test-name" type="text" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Enter test name" />
-            </div>
-            <div class="mb-4">
-                <label for="new-test-tags" class="block text-sm font-medium text-slate-700 mb-1">Tags (comma separated)</label>
-                <input id="new-test-tags" type="text" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="smoke, regression" />
-            </div>
-            <div class="mb-4">
-                <label for="new-test-steps" class="block text-sm font-medium text-slate-700 mb-1">Steps</label>
-                <textarea id="new-test-steps" rows="6" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Enter each step on a new line"></textarea>
-            </div>
-            <div class="flex justify-end space-x-3">
-                <button id="cancel-create-test-btn" type="button" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">Cancel</button>
-                <button id="save-create-test-btn" type="button" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Save</button>
-            </div>
-        </div>
-    </div>
-
 </body>
+
 </html>
