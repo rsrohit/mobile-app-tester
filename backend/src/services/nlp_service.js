@@ -1,24 +1,20 @@
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 /**
- * Load environment variables from a `.env` file if present.  This allows
- * developers to keep API keys and credentials outside of source control.
- * The call to `config()` is a no-op if no `.env` file is found.
+ * Environment variables are loaded once in src/config.js.  Avoid
+ * calling dotenv here to prevent duplicate parsing and side effects.
  */
-require('dotenv').config();
 
 // --- API Keys and URLs ---
-// Read API keys from environment variables.  Throw an explicit error if
-// they are missing so that failures are obvious at startup.
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
+// Import our central config.  This will load environment variables and
+// validate that GEMINI_API_KEY and DEEPSEEK_API_KEY are present.  By
+// using config here we avoid reloading dotenv and duplicating checks.
+const config = require('../config');
 
-if (!GEMINI_API_KEY || !DEEPSEEK_API_KEY) {
-    throw new Error(
-        'Missing AI service API keys. Please set GEMINI_API_KEY and DEEPSEEK_API_KEY in your environment.'
-    );
-}
+const GEMINI_API_KEY = config.geminiApiKey;
+const DEEPSEEK_API_KEY = config.deepseekApiKey;
 
+// Construct API URLs once using the keys from config
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 

@@ -1,0 +1,10 @@
+{
+  "au.com.bws.debug": {
+    "login - ‘Email’": "au.com.bws.debug:id/emailEditText",
+    "login - ‘Password’": "au.com.bws.debug:id/passwordEditText",
+    "login - button": "au.com.bws.debug:id/loginBtn",
+    "home - page.": "au.com.bws.debug:id/delivery_option_container",
+    "home - 'search'": "au.com.bws.debug:id/search_button",
+    "initial - button": "au.com.bws.debug:id/loginBtn"
+  }
+}

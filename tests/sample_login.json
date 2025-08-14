@@ -1,0 +1,12 @@
+{
+  "name": "Sample Login Test",
+  "tags": ["smoke", "login"],
+  "steps": [
+    "Launch the app",
+    "Wait for the login screen to appear",
+    "Enter valid username",
+    "Enter valid password",
+    "Tap on the Login button",
+    "Verify successful login"
+  ]
+}

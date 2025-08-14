@@ -1,24 +1,22 @@
 const { remote } = require('webdriverio');
+const fs = require('fs');
 const path = require('path');
 const convert = require('xml-js');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
-const fs = require('fs');
 const FormData = require('form-data');
 // Import the updated NLP service functions
 const { translateStepsToCommands, findCorrectSelector, getPageLoadIndicator } = require('../services/nlp_service');
 
-// Load environment variables from a `.env` file if available.  This call will
-// silently do nothing if no `.env` file exists.  It should be placed near
-// the top of the file to ensure that environment variables are available
-// for subsequent declarations.
-require('dotenv').config();
+// Import shared configuration.  This loads environment variables and
+// exposes BrowserStack credentials.  Avoid calling dotenv here to
+// prevent multiple config loads.
+const config = require('../config');
 
 // --- BrowserStack Credentials ---
-// Read credentials from environment variables.  Do not hard‑code secrets in
-// source code.  If either credential is missing, BrowserStack tests will
-// throw an explicit error when attempted.
-const BROWSERSTACK_USERNAME = process.env.BROWSERSTACK_USERNAME;
-const BROWSERSTACK_ACCESS_KEY = process.env.BROWSERSTACK_ACCESS_KEY;
+// Read credentials from config.  If either credential is missing,
+// BrowserStack tests will throw an explicit error when attempted.
+const BROWSERSTACK_USERNAME = config.browserStackUsername;
+const BROWSERSTACK_ACCESS_KEY = config.browserStackAccessKey;
 
 // --- POM Caching Logic with File Persistence ---
 const POM_FILE_PATH = path.join(__dirname, '../../pom.json');
@@ -372,22 +370,37 @@ async function executeTest(
 
         console.log('Test execution completed successfully.');
         io.to(socketId).emit('test-complete', { message: 'Test finished successfully!' });
-    } catch (error) {
+     } catch (error) {
         console.error('An error occurred during the test execution:', error);
         io.to(socketId).emit('test-error', {
             message: error.message || 'A critical error occurred in the test executor.',
         });
-    } finally {
-        try {
-            // Always attempt to persist the POM cache to disk at the end of a test.
-            saveCache();
-        } catch (cacheError) {
-            console.error('Failed to persist POM cache on shutdown:', cacheError);
-        }
-        if (browser) {
-            await browser.deleteSession();
-        }
-    }
+     } finally {
+         try {
+             // Always attempt to persist the POM cache to disk at the end of a test.
+             saveCache();
+         } catch (cacheError) {
+             console.error('Failed to persist POM cache on shutdown:', cacheError);
+         }
+         // Ensure the Appium session is closed
+         if (browser) {
+             await browser.deleteSession();
+         }
+         // Optionally remove the uploaded APK file to keep the uploads folder
+         // clean.  This behaviour is controlled by the CLEAN_UPLOADS_AFTER_TEST
+         // environment variable (see config.js).  We read directly from
+         // process.env here to avoid introducing a dependency on config.js in
+         // the test runner.
+         const cleanUploads = (process.env.CLEAN_UPLOADS_AFTER_TEST || 'false').toLowerCase() === 'true';
+         try {
+             if (cleanUploads && typeof apkPath === 'string') {
+                 fs.unlinkSync(apkPath);
+                 console.log(`Deleted uploaded APK: ${apkPath}`);
+             }
+         } catch (fileCleanupError) {
+             console.error('Failed to delete uploaded APK:', fileCleanupError);
+         }
+     }
 }
 
 /**
