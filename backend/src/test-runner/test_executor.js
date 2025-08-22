@@ -100,6 +100,70 @@ function cleanPageSource(xml) {
 }
 
 /**
+ * Waits for any obvious loading indicators to disappear.  Many Android apps
+ * display an indeterminate progress bar or spinner while fetching data.  If
+ * these elements remain on the screen, capturing a page source too early can
+ * return the loading overlay rather than the actual page.  This helper
+ * attempts to locate a variety of common progress indicators and waits for
+ * them to be removed from the UI.
+ *
+ * @param {object} browser - The WebdriverIO browser instance.
+ * @param {number} timeout - Maximum time to wait for indicators to disappear.
+ */
+async function waitForLoadingToDisappear(browser, timeout = 15000) {
+    // Define a set of selectors that typically correspond to loading spinners
+    const selectors = [
+        // Native Android progress bar
+        'android.widget.ProgressBar',
+        // Many apps embed spinners with a resource ID containing "progress" or "loading"
+        '//*[contains(@resource-id, "progress")]',
+        '//*[contains(@resource-id, "loading")]',
+        // Text-based indicators that occasionally appear
+        '//*[contains(translate(@text, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "loading")]',
+    ];
+    const start = Date.now();
+    for (const selector of selectors) {
+        try {
+            const element = await browser.$(selector);
+            // If the element currently exists, wait for it to disappear (reverse: true)
+            if (await element.isExisting()) {
+                await element.waitForExist({ timeout: timeout - (Date.now() - start), reverse: true });
+            }
+        } catch (err) {
+            // Ignore errors if the element isn't found; move on to the next selector
+        }
+    }
+}
+
+/**
+ * Waits for the UI to reach a steady state by polling the page source until it
+ * stops changing.  Capturing a page source while the UI is still updating
+ * (e.g. during animation or data binding) can lead to transient XML trees.
+ * This function fetches the page source repeatedly and returns once two
+ * consecutive snapshots are identical, or after a timeout.
+ *
+ * @param {object} browser - The WebdriverIO browser instance.
+ * @param {number} timeout - Maximum time to wait for stability.
+ * @param {number} interval - Time in milliseconds between polls.
+ * @returns {Promise<string>} The final page source.
+ */
+async function waitForPageStability(browser, timeout = 30000, interval = 1000) {
+    let lastSource = null;
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeout) {
+        const currentSource = await browser.getPageSource();
+        if (lastSource && currentSource === lastSource) {
+            // The page source has not changed since the last poll; assume stable
+            return currentSource;
+        }
+        lastSource = currentSource;
+        await browser.pause(interval);
+    }
+    // Timeout reached; return the most recent source even if not stable
+    return lastSource;
+}
+
+/**
  * Uploads an APK to BrowserStack and returns the app_url.
  * @param {string} apkPath - The local path to the .apk file.
  * @returns {Promise<string>} The app_url from BrowserStack.
@@ -284,10 +348,21 @@ async function executeTest(
                         currentPageName = match[1].trim().toLowerCase();
                         console.log(`Page context updated to: "${currentPageName}"`);
 
-                        // Wait a moment for the transition to begin
-                        await browser.pause(1000);
+                        // First wait for any obvious loading spinners to disappear
+                        try {
+                            await waitForLoadingToDisappear(browser, 15000);
+                        } catch (spinnerErr) {
+                            console.log('Spinner wait error (ignored):', spinnerErr.message);
+                        }
 
-                        const pageSource = await browser.getPageSource();
+                        // Then wait for the page source to stabilise before analysing it
+                        let pageSource;
+                        try {
+                            pageSource = await waitForPageStability(browser, 30000, 1000);
+                        } catch (stabErr) {
+                            console.log('Page stability wait error (ignored):', stabErr.message);
+                            pageSource = await browser.getPageSource();
+                        }
                         const cleanedSource = cleanPageSource(pageSource);
 
                         let indicatorSelector = await getPageLoadIndicator(
@@ -295,21 +370,27 @@ async function executeTest(
                             cleanedSource,
                             aiService,
                         );
-                        // --- FIX: Sanitize the selector from the AI ---
-                        indicatorSelector = indicatorSelector.replace(/[`"']/g, '');
-
+                        // Sanitize the selector string returned by the AI
+                        indicatorSelector = (indicatorSelector || '').replace(/[`"']/g, '').trim();
                         console.log(
                             `AI identified "${indicatorSelector}" as the key element for the ${currentPageName} page.`,
                         );
 
-                        // --- FIX: Use the robust findElement function for waiting ---
-                        const indicatorElement = await findElement(indicatorSelector);
-                        await indicatorElement.waitForExist({ timeout: 30000, interval: 2000 }); // Wait up to 30 seconds
-                        console.log(
-                            `Successfully verified that the ${currentPageName} page has loaded.`,
-                        );
+                        // If the AI couldn't find a suitable indicator, fall back to a fixed pause
+                        if (!indicatorSelector) {
+                            console.log('AI did not provide a page indicator. Falling back to a 5 second pause.');
+                            await browser.pause(5000);
+                        } else {
+                            // Wait for the indicator element to exist
+                            const indicatorElement = await findElement(indicatorSelector);
+                            await indicatorElement.waitForExist({ timeout: 30000, interval: 2000 });
+                            console.log(
+                                `Successfully verified that the ${currentPageName} page has loaded.`,
+                            );
+                        }
                     } else {
-                        await browser.pause(3000); // Fallback to a simple pause if no page name is found
+                        // No page name found in the step; wait a short fixed period
+                        await browser.pause(3000);
                     }
                     io.to(socketId).emit('step-update', { stepNumber, status: 'passed' });
                     continue; // Move to the next step
