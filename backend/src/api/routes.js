@@ -22,12 +22,17 @@ const storage = multer.diskStorage({
 });
 
 // Configure multer upload with file size limits and file type filter
+//
+// We accept both Android (.apk) and iOS (.ipa) packages.  The extension
+// check is case‑insensitive.  If an unsupported file type is uploaded
+// the request will fail with a 400 error.
 const upload = multer({
   storage,
   limits: { fileSize: config.maxUploadMb * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (path.extname(file.originalname).toLowerCase() !== '.apk') {
-      return cb(new Error('Only .apk files are allowed!'), false);
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!['.apk', '.ipa'].includes(ext)) {
+      return cb(new Error('Only .apk or .ipa files are allowed!'), false);
     }
     cb(null, true);
   },
@@ -56,6 +61,13 @@ const routes = (io) => {
     const aiService = req.body.aiService || 'gemini';
     const testEnvironment = req.body.testEnvironment || 'local';
 
+    // Read additional parameters for platform and device configuration.  If
+    // not provided, default to Android.  BrowserStack iOS runs require
+    // platform set to 'ios'.
+    const platform = (req.body.platform || 'android').toLowerCase();
+    const deviceName = req.body.deviceName || '';
+    const platformVersion = req.body.platformVersion || '';
+
     console.log(
       `Received test request from socket: ${socketId} using AI service: ${aiService} on environment: ${testEnvironment}`,
     );
@@ -63,7 +75,16 @@ const routes = (io) => {
 
     // Basic validation
     if (!apkFile || !testSteps || !socketId) {
-      return res.status(400).json({ message: 'Missing APK file, test steps, or socket ID.' });
+      return res.status(400).json({ message: 'Missing APK/IPA file, test steps, or socket ID.' });
+    }
+
+    // iOS tests can only run on BrowserStack.  Reject any attempt to run
+    // iOS locally.  The frontend should enforce this, but we check again
+    // on the server for safety.
+    if (platform === 'ios' && testEnvironment !== 'browserstack') {
+      return res
+        .status(400)
+        .json({ message: 'iOS tests are supported on BrowserStack only.' });
     }
 
     // Immediately respond to the client; test runs asynchronously
@@ -73,12 +94,21 @@ const routes = (io) => {
     });
 
     // Kick off the test execution asynchronously.  No need to await.
-    executeTest(apkFile.path, testSteps, io, socketId, aiService, testEnvironment)
-      .catch((err) => {
-        // Top‑level error catch.  Log errors here because the test
-        // executor already emits error events via Socket.IO.
-        console.error('Unhandled error in test execution:', err);
-      });
+    executeTest(
+      apkFile.path,
+      testSteps,
+      io,
+      socketId,
+      aiService,
+      testEnvironment,
+      platform,
+      deviceName,
+      platformVersion,
+    ).catch((err) => {
+      // Top‑level error catch.  Log errors here because the test
+      // executor already emits error events via Socket.IO.
+      console.error('Unhandled error in test execution:', err);
+    });
   });
 
   /**
@@ -146,8 +176,18 @@ const routes = (io) => {
     const aiService = req.body.aiService || 'gemini';
     const testEnvironment = req.body.testEnvironment || 'local';
 
+    const platform = (req.body.platform || 'android').toLowerCase();
+    const deviceName = req.body.deviceName || '';
+    const platformVersion = req.body.platformVersion || '';
+
     if (!apkFile || !testIds || !socketId) {
-      return res.status(400).json({ message: 'Missing APK file, test IDs, or socket ID.' });
+      return res.status(400).json({ message: 'Missing APK/IPA file, test IDs, or socket ID.' });
+    }
+
+    if (platform === 'ios' && testEnvironment !== 'browserstack') {
+      return res
+        .status(400)
+        .json({ message: 'iOS tests are supported on BrowserStack only.' });
     }
 
     // Parse testIds which may be provided as JSON string or comma-separated values
@@ -182,7 +222,17 @@ const routes = (io) => {
         }
         const rawSteps = testDef.steps.join('\n');
         try {
-          await executeTest(apkFile.path, rawSteps, io, socketId, aiService, testEnvironment);
+          await executeTest(
+            apkFile.path,
+            rawSteps,
+            io,
+            socketId,
+            aiService,
+            testEnvironment,
+            platform,
+            deviceName,
+            platformVersion,
+          );
         } catch (err) {
           console.error(`Error executing test ${testId}:`, err);
           // Continue to next test; errors will be emitted via socket events
