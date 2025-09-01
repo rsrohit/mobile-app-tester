@@ -81,7 +81,10 @@ function cleanPageSource(xml) {
         // Recursive function to remove non-essential attributes from each node
         function cleanNode(node) {
             if (!node) return;
+            // Retain both Android and iOS specific attributes so the AI
+            // service has enough context to build reliable selectors.
             const attributesToKeep = [
+                // --- Common / Android attributes ---
                 'class',
                 'resource-id',
                 'content-desc',
@@ -92,6 +95,18 @@ function cleanPageSource(xml) {
                 'clickable',
                 'enabled',
                 'selected',
+                // --- iOS attributes ---
+                'name',
+                'label',
+                'value',
+                'visible',
+                'accessible',
+                'type',
+                'x',
+                'y',
+                'width',
+                'height',
+                'index',
             ];
             if (node._attributes) {
                 const newAttributes = {};
@@ -402,6 +417,16 @@ async function executeTest(
                 console.log(`Attempting to find by Accessibility ID: ${selector}`);
                 return await browser.$(selector);
             }
+            if (selector.toLowerCase().startsWith('name=')) {
+                const name = selector.substring(5);
+                console.log(`Attempting to find by Name: ${name}`);
+                return await browser.$(`~${name}`);
+            }
+            if (selector.toLowerCase().startsWith('label=')) {
+                const label = selector.substring(6);
+                console.log(`Attempting to find by Label: ${label}`);
+                return await browser.$(`//*[@label="${label}"]`);
+            }
             if (selector.includes(':id/')) {
                 console.log(`Attempting to find by Resource ID: ${selector}`);
                 return await browser.$(`id:${selector}`);
@@ -409,7 +434,12 @@ async function executeTest(
             console.log(
                 `Attempting to find by flexible XPath for text: "${selector}"`,
             );
-            const xpathSelector = `//*[contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${selector.toLowerCase()}") or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${selector.toLowerCase()}")]`;
+            const lowered = selector.toLowerCase();
+            const xpathSelector =
+                `//*[contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
+                `or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
+                `or contains(translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
+                `or contains(translate(@label, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}")]`;
             return await browser.$(xpathSelector);
         };
 
