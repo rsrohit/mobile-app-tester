@@ -72,7 +72,7 @@
         <!-- Header -->
         <header class="mb-10 text-center">
             <h1 class="text-4xl sm:text-5xl font-bold text-slate-900">Mobile App Tester</h1>
-            <p class="text-lg text-slate-600 mt-3">Automate your APK testing using natural language and AI.</p>
+            <p class="text-lg text-slate-600 mt-3">Automate your app testing using natural language and AI.</p>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
@@ -534,7 +534,7 @@
                 if (file && (/\.apk$/i.test(file.name) || /\.ipa$/i.test(file.name))) {
                     apkFilenameDisplay.innerHTML = `<span class="font-semibold text-blue-600">${file.name}</span>`;
                 } else {
-                    apkFilenameDisplay.innerHTML = `<span class="font-semibold text-red-600">Invalid file. Please select a .apk or .ipa file.</span>`;
+                    apkFilenameDisplay.innerHTML = `<span class="font-semibold text-red-600">Invalid file. Please select an app package (.apk or .ipa).</span>`;
                 }
             }
 
@@ -554,7 +554,7 @@
                     return;
                 }
                 if (!appFile) {
-                    alert('Please upload a valid .apk or .ipa file.');
+                    alert('Please upload a valid app package (.apk or .ipa).');
                     return;
                 }
 
@@ -571,7 +571,7 @@
                 resultsContainer.innerHTML = '';
 
                 const formData = new FormData();
-                formData.append('apkFile', appFile);
+                formData.append('appFile', appFile);
                 formData.append('socketId', socket.id);
                 formData.append('aiService', selectedAiService);
                 formData.append('testEnvironment', selectedEnvironment);
