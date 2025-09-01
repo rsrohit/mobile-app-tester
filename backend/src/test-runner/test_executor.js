@@ -5,7 +5,7 @@ const convert = require('xml-js');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const FormData = require('form-data');
 // Import the updated NLP service functions
-const { translateStepsToCommands, findCorrectSelector, getPageLoadIndicator } = require('../services/nlp_service');
+const { translateStepsToCommands, findCorrectSelector } = require('../services/nlp_service');
 
 // Import shared configuration.  This loads environment variables and
 // exposes BrowserStack credentials.  Avoid calling dotenv here to
@@ -18,31 +18,53 @@ const config = require('../config');
 const BROWSERSTACK_USERNAME = config.browserStackUsername;
 const BROWSERSTACK_ACCESS_KEY = config.browserStackAccessKey;
 
-// --- POM Caching Logic with File Persistence ---
-const POM_FILE_PATH = path.join(__dirname, '../../pom.json');
+// --- POM Caching Logic with Platform-Specific File Persistence ---
+let POM_FILE_PATH = null;
 let pomCache = {};
 
-// Load the entire multi-app cache from the file system on startup
-try {
-    if (fs.existsSync(POM_FILE_PATH)) {
-        const data = fs.readFileSync(POM_FILE_PATH, 'utf8');
-        pomCache = JSON.parse(data);
-        console.log('Successfully loaded multi-app POM cache from pom.json');
+/**
+ * Loads the POM cache for the specified platform from disk.
+ * Defaults to an empty cache if no file exists or loading fails.
+ *
+ * @param {string} platform - Either `android` or `ios`.
+ */
+function loadCache(platform = 'android') {
+    POM_FILE_PATH = path.join(
+        __dirname,
+        `../../pom_${platform}.json`,
+    );
+    try {
+        if (fs.existsSync(POM_FILE_PATH)) {
+            const data = fs.readFileSync(POM_FILE_PATH, 'utf8');
+            pomCache = JSON.parse(data);
+            console.log(
+                `Successfully loaded ${platform} POM cache from ${path.basename(POM_FILE_PATH)}`,
+            );
+        } else {
+            pomCache = {};
+        }
+    } catch (error) {
+        console.error(
+            `Could not load POM cache from ${path.basename(POM_FILE_PATH)}:`,
+            error,
+        );
+        pomCache = {}; // Start with an empty cache if loading fails
     }
-} catch (error) {
-    console.error('Could not load POM cache from pom.json:', error);
-    pomCache = {}; // Start with an empty cache if loading fails
 }
 
 /**
- * Saves the current state of the entire POM cache to the pom.json file.
+ * Saves the current state of the POM cache to the platform-specific file.
  */
 function saveCache() {
+    if (!POM_FILE_PATH) return;
     try {
         fs.writeFileSync(POM_FILE_PATH, JSON.stringify(pomCache, null, 2), 'utf8');
-        console.log('POM cache saved to pom.json');
+        console.log(`POM cache saved to ${path.basename(POM_FILE_PATH)}`);
     } catch (error) {
-        console.error('Could not save POM cache to pom.json:', error);
+        console.error(
+            `Could not save POM cache to ${path.basename(POM_FILE_PATH)}:`,
+            error,
+        );
     }
 }
 
@@ -59,7 +81,10 @@ function cleanPageSource(xml) {
         // Recursive function to remove non-essential attributes from each node
         function cleanNode(node) {
             if (!node) return;
+            // Retain both Android and iOS specific attributes so the AI
+            // service has enough context to build reliable selectors.
             const attributesToKeep = [
+                // --- Common / Android attributes ---
                 'class',
                 'resource-id',
                 'content-desc',
@@ -70,6 +95,18 @@ function cleanPageSource(xml) {
                 'clickable',
                 'enabled',
                 'selected',
+                // --- iOS attributes ---
+                'name',
+                'label',
+                'value',
+                'visible',
+                'accessible',
+                'type',
+                'x',
+                'y',
+                'width',
+                'height',
+                'index',
             ];
             if (node._attributes) {
                 const newAttributes = {};
@@ -100,20 +137,115 @@ function cleanPageSource(xml) {
 }
 
 /**
- * Uploads an APK to BrowserStack and returns the app_url.
- * @param {string} apkPath - The local path to the .apk file.
+ * Waits for any obvious loading indicators to disappear.  Many Android apps
+ * display an indeterminate progress bar or spinner while fetching data.  If
+ * these elements remain on the screen, capturing a page source too early can
+ * return the loading overlay rather than the actual page.  This helper
+ * attempts to locate a variety of common progress indicators and waits for
+ * them to be removed from the UI.
+ *
+ * @param {object} browser - The WebdriverIO browser instance.
+ * @param {number} timeout - Maximum time to wait for indicators to disappear.
+ */
+async function waitForLoadingToDisappear(browser, platform = 'android', timeout = 15000) {
+    /*
+     * Waits for common loading spinners or progress indicators to disappear.
+     * On Android, this looks for ProgressBar widgets and resource IDs containing
+     * "progress" or "loading".  On iOS, it searches via the iOS class chain
+     * for activity and progress indicators.  If the element exists, it
+     * waits for it to disappear using the reverse option on waitForExist.
+     */
+    const start = Date.now();
+    if ((platform || 'android').toLowerCase() === 'ios') {
+        // iOS selectors via class chain
+        const iosChains = [
+            '**/XCUIElementTypeActivityIndicator',
+            '**/XCUIElementTypeProgressIndicator',
+        ];
+        for (const chain of iosChains) {
+            try {
+                const element = await browser.$(`-ios class chain:${chain}`);
+                if (await element.isExisting()) {
+                    await element.waitForExist({
+                        timeout: timeout - (Date.now() - start),
+                        reverse: true,
+                    });
+                }
+            } catch (err) {
+                // If not found or invalid selector, ignore and continue
+            }
+        }
+    } else {
+        // Android selectors: widget class or resource/text contains progress/loading
+        const selectors = [
+            'android.widget.ProgressBar',
+            '//*[contains(@resource-id, "progress")]',
+            '//*[contains(@resource-id, "loading")]',
+            '//*[contains(translate(@text, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "loading")]',
+        ];
+        for (const selector of selectors) {
+            try {
+                const element = await browser.$(selector);
+                if (await element.isExisting()) {
+                    await element.waitForExist({
+                        timeout: timeout - (Date.now() - start),
+                        reverse: true,
+                    });
+                }
+            } catch (err) {
+                // Ignore invalid selectors or not found errors
+            }
+        }
+    }
+}
+
+/**
+ * Waits for the UI to reach a steady state by polling the page source until it
+ * stops changing.  Capturing a page source while the UI is still updating
+ * (e.g. during animation or data binding) can lead to transient XML trees.
+ * This function fetches the page source repeatedly and returns once two
+ * consecutive snapshots are identical, or after a timeout.
+ *
+ * @param {object} browser - The WebdriverIO browser instance.
+ * @param {number} timeout - Maximum time to wait for stability.
+ * @param {number} interval - Time in milliseconds between polls.
+ * @returns {Promise<string>} The final page source.
+ */
+async function waitForPageStability(browser, timeout = 30000, interval = 1000) {
+    //browser.pause(timeout); // Initial pause to allow any immediate changes
+    let lastSource = null;
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeout) {
+        const currentSource = await browser.getPageSource();
+        if (lastSource && currentSource === lastSource) {
+            // The page source has not changed since the last poll; assume stable
+            return currentSource;
+        }
+        lastSource = currentSource;
+        await browser.pause(interval);
+    }
+    // Timeout reached; return the most recent source even if not stable
+    return lastSource;
+}
+
+/**
+ * Uploads a mobile app package (APK or IPA) to BrowserStack and returns the app_url.
+ * BrowserStack accepts both Android (.apk) and iOS (.ipa) binaries.  The caller
+ * is responsible for ensuring only supported file types are provided.
+ *
+ * @param {string} filePath - The local path to the .apk or .ipa file.
  * @returns {Promise<string>} The app_url from BrowserStack.
  */
-async function uploadToBrowserStack(apkPath) {
+async function uploadToBrowserStack(filePath) {
     if (!BROWSERSTACK_USERNAME || !BROWSERSTACK_ACCESS_KEY) {
         throw new Error(
             'BrowserStack credentials are missing. Set BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY in your environment.'
         );
     }
-    console.log('Uploading APK to BrowserStack...');
+    console.log('Uploading app to BrowserStack...');
 
     const form = new FormData();
-    form.append('file', fs.createReadStream(apkPath));
+    form.append('file', fs.createReadStream(filePath));
 
     const response = await fetch('https://api-cloud.browserstack.com/app-automate/upload', {
         method: 'POST',
@@ -135,54 +267,97 @@ async function uploadToBrowserStack(apkPath) {
 }
 
 /**
- * Executes a series of structured commands on an Android device using WebdriverIO and Appium.
- * @param {string} apkPath - The absolute path to the .apk file.
+ * Executes a series of structured commands on a mobile device using WebdriverIO and Appium.
+ * Supports both Android and iOS.  iOS tests are only supported on BrowserStack.
+ *
+ * @param {string} appPath - The absolute path to the .apk or .ipa file.
  * @param {string} rawStepsText - The raw natural language steps from the user as a single string.
  * @param {object} io - The Socket.IO instance for emitting real-time updates.
  * @param {string} socketId - The ID of the client's socket connection.
  * @param {string} aiService - The AI service to use ('gemini' or 'deepseek').
  * @param {string} testEnvironment - The environment to run on ('local' or 'browserstack').
+ * @param {string} platform - Target platform ('android' or 'ios').  Defaults to 'android' if undefined.
+ * @param {string} deviceName - Desired device name when running on BrowserStack.  Optional.
+ * @param {string} platformVersion - Desired OS version when running on BrowserStack.  Optional.
  */
 async function executeTest(
-    apkPath,
+    appPath,
     rawStepsText,
     io,
     socketId,
     aiService,
     testEnvironment,
+    platform = 'android',
+    deviceName = '',
+    platformVersion = '',
 ) {
     let browser;
+    // Normalise the platform once so that helper functions can use it.  This
+    // variable persists through the lifetime of the test execution.
+    const targetPlatform = (platform || 'android').toLowerCase();
+
+    // Load the platform-specific POM cache before executing any steps
+    loadCache(targetPlatform);
+
     try {
         let capabilities;
         let appiumOptions = {};
 
+        // Build capabilities based on platform and environment
+
         if (testEnvironment === 'browserstack') {
-            const app_url = await uploadToBrowserStack(apkPath);
+            // BrowserStack execution for both Android and iOS
+            const app_url = await uploadToBrowserStack(appPath);
+            // Common BrowserStack options
+            const bstackOptions = {
+                userName: BROWSERSTACK_USERNAME,
+                accessKey: BROWSERSTACK_ACCESS_KEY,
+                deviceName: deviceName || (targetPlatform === 'ios' ? 'iPhone 15' : 'Samsung Galaxy S23'),
+                osVersion: platformVersion || (targetPlatform === 'ios' ? '17' : '13.0'),
+                projectName: process.env.BS_PROJECT_NAME || 'AI Mobile Tester',
+                buildName:
+                    (process.env.BS_BUILD_PREFIX || 'Build') + '-' + new Date().toISOString().slice(0, 10),
+                debug: true,
+                networkLogs: true,
+                appiumVersion: process.env.BS_APPIUM_VERSION || undefined,
+            };
+            // Remove undefined keys from bstackOptions
+            Object.keys(bstackOptions).forEach(
+                (key) => bstackOptions[key] === undefined && delete bstackOptions[key],
+            );
             appiumOptions = {
                 hostname: 'hub-cloud.browserstack.com',
-                port: 4444,
+                port: 443,
+                // --- FIX: Explicitly set the protocol to HTTPS ---
+                protocol: 'https',
                 path: '/wd/hub',
                 logLevel: 'error',
                 connectionRetryTimeout: 120000, // 2 minutes
                 connectionRetryCount: 3,
             };
-            capabilities = {
-                'bstack:options': {
-                    userName: BROWSERSTACK_USERNAME,
-                    accessKey: BROWSERSTACK_ACCESS_KEY,
-                    deviceName: 'Samsung Galaxy S23', // Example device
-                    platformVersion: '13.0',
-                    projectName: 'AI Mobile Tester',
-                    buildName: `Build-${Date.now()}`,
-                    debug: true,
-                    networkLogs: true,
-                },
-                platformName: 'Android',
-                'appium:automationName': 'UiAutomator2',
-                'appium:app': app_url,
-            };
+            if (targetPlatform === 'ios') {
+                capabilities = {
+                    platformName: 'iOS',
+                    'appium:automationName': 'XCUITest',
+                    'appium:app': app_url,
+                    'bstack:options': bstackOptions,
+                    'appium:autoDismissAlerts': true, // Auto-dismiss iOS alerts
+                };
+            } else {
+                // Android on BrowserStack
+                capabilities = {
+                    platformName: 'Android',
+                    'appium:automationName': 'UiAutomator2',
+                    'appium:app': app_url,
+                    'bstack:options': bstackOptions,
+                    'appium:autoGrantPermissions': true,
+                };
+            }
         } else {
-            // Default to local execution. Allow overriding the Appium host/port via environment variables.
+            // Local execution (currently Android only)
+            if (targetPlatform === 'ios') {
+                throw new Error('iOS tests can only be executed on BrowserStack.');
+            }
             const appiumHost = process.env.APPIUM_HOST || '127.0.0.1';
             const appiumPort = parseInt(process.env.APPIUM_PORT || '4723', 10);
             appiumOptions = {
@@ -194,7 +369,7 @@ async function executeTest(
                 platformName: 'Android',
                 'appium:automationName': 'UiAutomator2',
                 'appium:deviceName': 'Android Emulator',
-                'appium:app': path.resolve(apkPath),
+                'appium:app': path.resolve(appPath),
                 'appium:noReset': false,
                 'appium:autoGrantPermissions': true,
             };
@@ -205,13 +380,15 @@ async function executeTest(
         console.log('Remote session started successfully.');
 
         // --- NEW: Identify the app and prepare its specific cache ---
-        const appPackage = browser.capabilities.appPackage;
-        console.log(`Identified app package: ${appPackage}`);
-        if (!pomCache[appPackage]) {
-            console.log(`No existing cache found for ${appPackage}. Creating a new one.`);
-            pomCache[appPackage] = {};
+        // Use appPackage for Android or bundleId for iOS when caching selectors.
+        const appId =
+            browser.capabilities.appPackage || browser.capabilities.bundleId || 'unknown';
+        console.log(`Identified app id: ${appId}`);
+        if (!pomCache[appId]) {
+            console.log(`No existing cache found for ${appId}. Creating a new one.`);
+            pomCache[appId] = {};
         }
-        const appSelectorCache = pomCache[appPackage];
+        const appSelectorCache = pomCache[appId];
 
         // --- NEW: Define findElement at a higher scope ---
         const findElement = async (selector) => {
@@ -240,6 +417,16 @@ async function executeTest(
                 console.log(`Attempting to find by Accessibility ID: ${selector}`);
                 return await browser.$(selector);
             }
+            if (selector.toLowerCase().startsWith('name=')) {
+                const name = selector.substring(5);
+                console.log(`Attempting to find by Name: ${name}`);
+                return await browser.$(`~${name}`);
+            }
+            if (selector.toLowerCase().startsWith('label=')) {
+                const label = selector.substring(6);
+                console.log(`Attempting to find by Label: ${label}`);
+                return await browser.$(`//*[@label="${label}"]`);
+            }
             if (selector.includes(':id/')) {
                 console.log(`Attempting to find by Resource ID: ${selector}`);
                 return await browser.$(`id:${selector}`);
@@ -247,7 +434,12 @@ async function executeTest(
             console.log(
                 `Attempting to find by flexible XPath for text: "${selector}"`,
             );
-            const xpathSelector = `//*[contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${selector.toLowerCase()}") or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${selector.toLowerCase()}")]`;
+            const lowered = selector.toLowerCase();
+            const xpathSelector =
+                `//*[contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
+                `or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
+                `or contains(translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
+                `or contains(translate(@label, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}")]`;
             return await browser.$(xpathSelector);
         };
 
@@ -276,41 +468,54 @@ async function executeTest(
                     continue; // Move to the next step
                 }
 
-                // --- NEW: Implement intelligent, AI-driven waits ---
+                // --- NEW: Wait for element in the next step instead of a fixed pause ---
                 if (lowerCaseStep.includes('wait for app to load')) {
                     console.log(`--- Executing intelligent wait: "${step}" ---`);
+
+                    // Update page context if provided
                     const match = step.match(/wait for app to load the (.*) page/i);
                     if (match && match[1]) {
                         currentPageName = match[1].trim().toLowerCase();
                         console.log(`Page context updated to: "${currentPageName}"`);
-
-                        // Wait a moment for the transition to begin
-                        await browser.pause(1000);
-
-                        const pageSource = await browser.getPageSource();
-                        const cleanedSource = cleanPageSource(pageSource);
-
-                        let indicatorSelector = await getPageLoadIndicator(
-                            currentPageName,
-                            cleanedSource,
-                            aiService,
-                        );
-                        // --- FIX: Sanitize the selector from the AI ---
-                        indicatorSelector = indicatorSelector.replace(/[`"']/g, '');
-
-                        console.log(
-                            `AI identified "${indicatorSelector}" as the key element for the ${currentPageName} page.`,
-                        );
-
-                        // --- FIX: Use the robust findElement function for waiting ---
-                        const indicatorElement = await findElement(indicatorSelector);
-                        await indicatorElement.waitForExist({ timeout: 30000, interval: 2000 }); // Wait up to 30 seconds
-                        console.log(
-                            `Successfully verified that the ${currentPageName} page has loaded.`,
-                        );
-                    } else {
-                        await browser.pause(3000); // Fallback to a simple pause if no page name is found
                     }
+
+                    const nextStep = allSteps[i + 1];
+                    if (nextStep) {
+                        let nextSelector;
+                        try {
+                            const pageSource = await waitForPageStability(browser, 30000, 1000);
+                            const cleanedSource = cleanPageSource(pageSource);
+                            const nextCommandResp = await translateStepsToCommands(
+                                nextStep,
+                                cleanedSource,
+                                aiService,
+                            );
+                            const nextCommand = Array.isArray(nextCommandResp)
+                                ? nextCommandResp[0]
+                                : nextCommandResp;
+                            nextSelector = nextCommand && nextCommand.selector;
+                        } catch (err) {
+                            console.log('Error determining next step selector:', err.message);
+                        }
+
+                        if (nextSelector) {
+                            try {
+                                const element = await findElement(nextSelector);
+                                await element.waitForDisplayed({ timeout: 30000, interval: 2000 });
+                                console.log('Next step element is now visible.');
+                            } catch (waitErr) {
+                                console.log('Failed waiting for next step element:', waitErr.message);
+                            }
+                        } else {
+                            console.log(
+                                'Could not derive selector for next step; falling back to 3 second pause.',
+                            );
+                            await browser.pause(3000);
+                        }
+                    } else {
+                        console.log('No subsequent step found. Skipping dynamic wait.');
+                    }
+
                     io.to(socketId).emit('step-update', { stepNumber, status: 'passed' });
                     continue; // Move to the next step
                 }
@@ -386,20 +591,20 @@ async function executeTest(
          if (browser) {
              await browser.deleteSession();
          }
-         // Optionally remove the uploaded APK file to keep the uploads folder
-         // clean.  This behaviour is controlled by the CLEAN_UPLOADS_AFTER_TEST
-         // environment variable (see config.js).  We read directly from
-         // process.env here to avoid introducing a dependency on config.js in
-         // the test runner.
-         const cleanUploads = (process.env.CLEAN_UPLOADS_AFTER_TEST || 'false').toLowerCase() === 'true';
-         try {
-             if (cleanUploads && typeof apkPath === 'string') {
-                 fs.unlinkSync(apkPath);
-                 console.log(`Deleted uploaded APK: ${apkPath}`);
-             }
-         } catch (fileCleanupError) {
-             console.error('Failed to delete uploaded APK:', fileCleanupError);
-         }
+        // Optionally remove the uploaded app file to keep the uploads folder
+        // clean.  This behaviour is controlled by the CLEAN_UPLOADS_AFTER_TEST
+        // environment variable (see config.js).  We read directly from
+        // process.env here to avoid introducing a dependency on config.js in
+        // the test runner.
+        const cleanUploads = (process.env.CLEAN_UPLOADS_AFTER_TEST || 'false').toLowerCase() === 'true';
+        try {
+            if (cleanUploads && typeof appPath === 'string') {
+                fs.unlinkSync(appPath);
+                console.log(`Deleted uploaded app: ${appPath}`);
+            }
+        } catch (fileCleanupError) {
+            console.error('Failed to delete uploaded app file:', fileCleanupError);
+        }
      }
 }
 

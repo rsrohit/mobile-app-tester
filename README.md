@@ -121,15 +121,16 @@ Make sure you have the following software installed:
 
 ## Configuration
 
-Before running the application, you must add your AI service API keys.
+Before running the application, set your AI service keys via environment variables.  The backend reads `GEMINI_API_KEY` and `DEEPSEEK_API_KEY` from the environment, and `backend/src/config.js` will exit with an error if either key is missing.
 
-1.  Open the file: `backend/src/services/nlp_service.js`.
-2.  Replace the placeholder values for `GEMINI_API_KEY` and `DEEPSEEK_API_KEY` with your actual keys.
+Example (bash):
 
-```javascript
-const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"; 
-const DEEPSEEK_API_KEY = "YOUR_DEEPSEEK_API_KEY";
-````
+```bash
+export GEMINI_API_KEY="your-gemini-key"
+export DEEPSEEK_API_KEY="your-deepseek-key"
+```
+
+You can also place these values in a `.env` file in the `backend` directory.
 
 -----
 
@@ -167,8 +168,3 @@ const DEEPSEEK_API_KEY = "YOUR_DEEPSEEK_API_KEY";
   - [WebdriverIO Documentation](https://webdriver.io/)
   - [Google Gemini API](https://ai.google.dev/gemini-api)
   - [Deepseek API](https://www.deepseek.com/)
-
-<!-- end list -->
-
-```
-```

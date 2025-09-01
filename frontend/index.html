@@ -72,7 +72,7 @@
         <!-- Header -->
         <header class="mb-10 text-center">
             <h1 class="text-4xl sm:text-5xl font-bold text-slate-900">Mobile App Tester</h1>
-            <p class="text-lg text-slate-600 mt-3">Automate your APK testing using natural language and AI.</p>
+            <p class="text-lg text-slate-600 mt-3">Automate your app testing using natural language and AI.</p>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
@@ -80,6 +80,23 @@
             <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-lg border border-slate-200">
                 <h2 class="text-2xl font-semibold mb-6 border-b border-slate-200 pb-4 text-slate-900">1. Configuration
                 </h2>
+
+                <!-- NEW: Platform Selection -->
+                <div class="mb-6">
+                    <label class="block text-base font-medium text-slate-700 mb-2">Platform</label>
+                    <fieldset class="mt-2 bg-slate-50 p-3 rounded-lg">
+                        <div class="flex items-center justify-around">
+                            <div class="flex items-center">
+                                <input id="android-radio" name="platform" type="radio" value="android" checked class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                <label for="android-radio" class="ml-2 block text-sm font-medium text-slate-700">Android</label>
+                            </div>
+                            <div class="flex items-center">
+                                <input id="ios-radio" name="platform" type="radio" value="ios" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                <label for="ios-radio" class="ml-2 block text-sm font-medium text-slate-700">iOS</label>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
 
                 <!-- Test Environment Selection -->
                 <div class="mb-6">
@@ -100,6 +117,18 @@
                             </div>
                         </div>
                     </fieldset>
+                </div>
+                
+                <!-- NEW: BrowserStack Device Options (conditionally visible) -->
+                <div id="browserstack-options" class="hidden space-y-4 mb-6">
+                     <div>
+                        <label for="device-name" class="block text-sm font-medium text-slate-700">Device Name (Optional)</label>
+                        <input type="text" id="device-name" class="mt-1 block w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., iPhone 15 or Samsung Galaxy S23">
+                    </div>
+                     <div>
+                        <label for="platform-version" class="block text-sm font-medium text-slate-700">OS Version (Optional)</label>
+                        <input type="text" id="platform-version" class="mt-1 block w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., 17 or 13.0">
+                    </div>
                 </div>
 
                 <!-- AI Service Selection -->
@@ -144,13 +173,9 @@
                     </fieldset>
                 </div>
 
-                <!-- APK File Upload -->
+                <!-- App File Upload -->
                 <div class="mb-6">
-                    <label for="apk-file-input" class="block text-base font-medium text-slate-700 mb-2">Upload .apk
-                        File</label>
-                    <!-- Dropzone with file input overlay.  The file input covers the entire dropzone (absolute/opacity-0)
-                         to guarantee the file dialog opens on click in all browsers.  The inner content has pointer-events
-                         disabled so clicks pass through to the input. -->
+                    <label for="apk-file-input" class="block text-base font-medium text-slate-700 mb-2">Upload App File</label>
                     <div id="apk-dropzone"
                         class="relative flex justify-center items-center w-full h-40 px-6 py-10 border-2 border-slate-300 border-dashed rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
                         <div class="text-center pointer-events-none">
@@ -162,7 +187,7 @@
                             <p id="apk-filename" class="mt-2 text-sm text-slate-600"><span
                                     class="font-semibold text-blue-600">Click to upload</span> or drag & drop</p>
                         </div>
-                        <input id="apk-file-input" type="file" accept=".apk"
+                        <input id="apk-file-input" type="file" accept=".apk,.ipa"
                             class="absolute inset-0 opacity-0 cursor-pointer" />
                     </div>
                 </div>
@@ -264,12 +289,6 @@
         </div>
     </div>
 
-    <!-- 
-      FIX: All application JavaScript is now wrapped in a single DOMContentLoaded
-      event listener. This ensures that all external scripts (like socket.io.js)
-      are fully loaded and parsed before our code attempts to use them,
-      preventing the "io is not defined" ReferenceError.
-    -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- DOM Element References ---
@@ -289,7 +308,7 @@
             const manualStepsSection = document.getElementById('manual-steps-section');
             const savedTestsSection = document.getElementById('saved-tests-section');
             const executionModeRadios = document.querySelectorAll('input[name="execution-mode"]');
-            // In‑memory map of saved tests keyed by id for quick lookup
+            const browserstackOptions = document.getElementById('browserstack-options');
             let savedTests = {};
 
             // --- WebSocket Connection ---
@@ -320,11 +339,29 @@
                 runTestBtn.textContent = 'Run Test';
             });
 
+            // --- UI Logic for Dynamic Fields ---
+            function updateUIState() {
+                const env = document.querySelector('input[name="test-environment"]:checked').value;
+                const platform = document.querySelector('input[name="platform"]:checked').value;
+                
+                // Show BrowserStack device options only when BrowserStack is selected
+                if (browserstackOptions) {
+                    browserstackOptions.classList.toggle('hidden', env !== 'browserstack');
+                }
+                
+                // Enforce that iOS can only run on BrowserStack
+                if (platform === 'ios' && env === 'local') {
+                    document.getElementById('browserstack-radio').checked = true;
+                    if (browserstackOptions) browserstackOptions.classList.remove('hidden');
+                    alert('iOS tests are only supported on BrowserStack. The environment has been switched for you.');
+                }
+            }
+
+            document.querySelectorAll('input[name="test-environment"], input[name="platform"]').forEach(radio => {
+                radio.addEventListener('change', updateUIState);
+            });
+
             // --- Saved Tests Functions ---
-            /**
-             * Load saved tests from the backend and populate the multi‑select
-             * dropdown.  Also updates the savedTests map for quick lookup.
-             */
             async function loadSavedTests() {
                 try {
                     const response = await fetch('http://localhost:3000/api/tests');
@@ -472,9 +509,6 @@
             });
 
             // --- Event Listeners for File Upload ---
-            // No need for a click handler on the dropzone because the file input overlay
-            // handles clicks automatically.  We still handle drag events to provide
-            // visual feedback and assign dropped files to the hidden input.
             apkDropzone.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 apkDropzone.classList.add('border-blue-500', 'bg-blue-50');
@@ -497,34 +531,35 @@
             });
 
             function handleFileSelect(file) {
-                if (file && /\.apk$/i.test(file.name)) {
-                    // Show the selected file name in blue for a valid APK
+                if (file && (/\.apk$/i.test(file.name) || /\.ipa$/i.test(file.name))) {
                     apkFilenameDisplay.innerHTML = `<span class="font-semibold text-blue-600">${file.name}</span>`;
                 } else {
-                    // Display an error message when the file is not an APK
-                    apkFilenameDisplay.innerHTML = `<span class="font-semibold text-red-600">Invalid file. Please select a .apk file.</span>`;
+                    apkFilenameDisplay.innerHTML = `<span class="font-semibold text-red-600">Invalid file. Please select an app package (.apk or .ipa).</span>`;
                 }
             }
 
             // --- Run Test Button Logic ---
             runTestBtn.addEventListener('click', async () => {
-                const apkFile = apkFileInput.files[0];
+                const appFile = apkFileInput.files[0];
                 const manualSteps = testStepsTextarea.value.trim();
                 const selectedAiService = document.querySelector('input[name="ai-service"]:checked').value;
                 const selectedEnvironment = document.querySelector('input[name="test-environment"]:checked').value;
+                const selectedPlatform = document.querySelector('input[name="platform"]:checked').value;
+                const deviceName = document.getElementById('device-name').value.trim();
+                const platformVersion = document.getElementById('platform-version').value.trim();
                 const selectedTestIds = Array.from(document.getElementById('test-select').selectedOptions).map((opt) => opt.value);
 
                 if (!socket.connected) {
                     alert('Not connected to the server. Please wait or refresh the page.');
                     return;
                 }
-                if (!apkFile || !/\.apk$/i.test(apkFile.name)) {
-                    alert('Please upload a valid .apk file.');
+                if (!appFile) {
+                    alert('Please upload a valid app package (.apk or .ipa).');
                     return;
                 }
 
                 // Determine whether to run saved tests or manual steps
-                const runSavedTests = selectedTestIds.length > 0;
+                const runSavedTests = document.querySelector('input[name="execution-mode"]:checked').value === 'saved' && selectedTestIds.length > 0;
                 if (!runSavedTests && !manualSteps) {
                     alert('Please enter test steps or select saved tests to run.');
                     return;
@@ -535,73 +570,39 @@
                 resultsPlaceholder.style.display = 'none';
                 resultsContainer.innerHTML = '';
 
-                if (runSavedTests) {
-                    // Flatten steps from all selected tests into an array of objects
-                    const stepObjects = [];
-                    selectedTestIds.forEach((id) => {
-                        const testDef = savedTests[id];
-                        if (testDef && Array.isArray(testDef.steps)) {
-                            testDef.steps.forEach((step) => {
-                                stepObjects.push({ testName: testDef.name, step: step });
-                            });
-                        } else {
-                            // Fallback: unknown steps length
-                            stepObjects.push({ testName: id, step: '' });
-                        }
-                    });
-                    // Show skeleton loaders for each step
-                    stepObjects.forEach((_, idx) => {
-                        const skeletonElement = createSkeletonCard(idx + 1);
-                        resultsContainer.appendChild(skeletonElement);
-                    });
-
-                    const formData = new FormData();
-                    formData.append('apkFile', apkFile);
-                    formData.append('testIds', JSON.stringify(selectedTestIds));
-                    formData.append('socketId', socket.id);
-                    formData.append('aiService', selectedAiService);
-                    formData.append('testEnvironment', selectedEnvironment);
-                    try {
-                        const response = await fetch('http://localhost:3000/api/run-tests', {
-                            method: 'POST',
-                            body: formData,
-                        });
-                        const result = await response.json();
-                        if (!response.ok) {
-                            throw new Error(result.message || 'An error occurred during the test request.');
-                        }
-                        console.log('Multi-test request successful:', result.message);
-                        // Replace skeletons with actual step cards for saved tests
-                        resultsContainer.innerHTML = '';
-                        stepObjects.forEach((obj, idx) => {
-                            const label = obj.step ? `[${obj.testName}] ${obj.step}` : `[${obj.testName}] Step ${idx + 1}`;
-                            const stepElement = createStepCard(label, idx + 1);
-                            resultsContainer.appendChild(stepElement);
-                        });
-                    } catch (error) {
-                        console.error('Error sending multi-test request:', error);
-                        alert(`Error: ${error.message}`);
-                        runTestBtn.disabled = false;
-                        runTestBtn.textContent = 'Run Test';
-                    }
-                    return;
-                }
-
-                // Single/manual test run
-                const stepsArray = manualSteps.split('\n').filter((s) => s.trim() !== '');
-                // Show skeleton loaders for manual steps
-                stepsArray.forEach((stepText, index) => {
-                    const skeletonElement = createSkeletonCard(index + 1);
-                    resultsContainer.appendChild(skeletonElement);
-                });
                 const formData = new FormData();
-                formData.append('apkFile', apkFile);
-                formData.append('testSteps', manualSteps);
+                formData.append('appFile', appFile);
                 formData.append('socketId', socket.id);
                 formData.append('aiService', selectedAiService);
                 formData.append('testEnvironment', selectedEnvironment);
+                formData.append('platform', selectedPlatform);
+                if (deviceName) formData.append('deviceName', deviceName);
+                if (platformVersion) formData.append('platformVersion', platformVersion);
+
+                let endpoint;
+                let stepsToDisplay = [];
+
+                if (runSavedTests) {
+                    endpoint = 'http://localhost:3000/api/run-tests';
+                    formData.append('testIds', JSON.stringify(selectedTestIds));
+                    selectedTestIds.forEach(id => {
+                        const testDef = savedTests[id];
+                        if (testDef && testDef.steps) {
+                            testDef.steps.forEach(step => stepsToDisplay.push(`[${testDef.name}] ${step}`));
+                        }
+                    });
+                } else {
+                    endpoint = 'http://localhost:3000/api/run-test';
+                    formData.append('testSteps', manualSteps);
+                    stepsToDisplay = manualSteps.split('\n').filter(s => s.trim());
+                }
+                
+                stepsToDisplay.forEach((stepText, index) => {
+                    resultsContainer.appendChild(createStepCard(stepText, index + 1));
+                });
+                
                 try {
-                    const response = await fetch('http://localhost:3000/api/run-test', {
+                    const response = await fetch(endpoint, {
                         method: 'POST',
                         body: formData,
                     });
@@ -609,12 +610,6 @@
                     if (!response.ok) {
                         throw new Error(result.message || 'An error occurred during the test request.');
                     }
-                    // Replace skeletons with actual step cards for manual run
-                    resultsContainer.innerHTML = '';
-                    stepsArray.forEach((stepText, index) => {
-                        const stepElement = createStepCard(stepText, index + 1);
-                        resultsContainer.appendChild(stepElement);
-                    });
                     console.log('Test request successful:', result.message);
                 } catch (error) {
                     console.error('Error sending test request:', error);
@@ -625,19 +620,6 @@
             });
 
             // --- UI Update Functions ---
-            function createSkeletonCard(stepNumber) {
-                const card = document.createElement('div');
-                card.className = 'skeleton-loader bg-white p-4 rounded-lg shadow-sm flex items-start space-x-4';
-                card.innerHTML = `
-                    <div class="h-6 w-6 bg-slate-200 rounded-full"></div>
-                    <div class="flex-1 space-y-2">
-                        <div class="h-4 bg-slate-200 rounded w-3/4"></div>
-                        <div class="h-3 bg-slate-200 rounded w-1/4"></div>
-                    </div>
-                `;
-                return card;
-            }
-
             function createStepCard(stepText, stepNumber) {
                 const card = document.createElement('div');
                 card.id = `step-card-${stepNumber}`;
@@ -683,7 +665,7 @@
                 };
                 return icons[status];
             }
-
+            
             // === Execution mode toggle setup ===
             function updateExecutionMode() {
                 const selectedRadio = document.querySelector('input[name="execution-mode"]:checked');
@@ -717,9 +699,9 @@
                 radio.addEventListener('change', updateExecutionMode);
             });
             updateExecutionMode();
+            updateUIState(); // Initial call to set UI state
         });
     </script>
-
 </body>
 
 </html>
