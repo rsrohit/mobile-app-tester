@@ -3,10 +3,14 @@
   "tags": ["smoke", "login"],
   "steps": [
     "Launch the app",
-    "Wait for the login screen to appear",
-    "Enter valid username",
-    "Enter valid password",
-    "Tap on the Login button",
-    "Verify successful login"
+    "Wait for app to load the initial page",
+    "Click on ‘LOG IN’ button",
+    "Wait for app to load the login page",
+    "Type ‘Pankaj1.aug@gmail.com’ into ‘Email’",
+    "Type ‘Pankaj@123’ into ‘Password’",
+    "Click on ‘LOG IN’ button",
+    "Wait for app to load the home page",
+    "Verify that Toggle with options ‘Delivery’ and ‘Pick up’ is available on top of home page",
+    "Verify that 'search' textbox is visible with placeholder text as ‘What can we get you?’ Is available on home page"
   ]
 }
