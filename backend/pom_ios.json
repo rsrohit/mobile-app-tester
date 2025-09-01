@@ -1,1 +1,10 @@
-{}
+{
+  "au.com.bws.uat": {
+    "initial - button": "~LOG IN",
+    "login - ‘Email’": "~Email",
+    "login - ‘Password’": "~Password",
+    "login - button": "~Log in",
+    "home - page.": "~Delivery",
+    "home - 'search'": "~What can we get you?"
+  }
+}

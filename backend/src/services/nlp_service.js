@@ -34,9 +34,9 @@ async function translateStepsToCommands(rawSteps, pageSource, aiService) {
         The JSON objects must have the following properties:
         - "command": (String) The action to perform. Supported commands are: "click", "setValue", "verifyVisible", "launchApp".
         - "selector": (String) The best selector for the target UI element based on the XML source. Prefer accessibility IDs.
-          * For **Android**, prioritize `resource-id`, then `content-desc`.
-          * For **iOS**, prioritize the element's `name` or `label` attributes.
-          * When using an accessibility identifier, prefix the selector with `~`.
+          * For **Android**, prioritize 'resource-id', then 'content-desc'.
+          * For **iOS**, prioritize the element's 'name' or 'label' attributes.
+          * When using an accessibility identifier, prefix the selector with '~'.
           * Use a precise XPath only if no stable accessibility identifier or resource-id is available.
         - "value": (String) The text to be entered into a field.
         - "original_step": (String) The original, unmodified natural language step.
@@ -78,9 +78,9 @@ async function getPageLoadIndicator(pageName, pageSource, aiService) {
         Analyze the provided XML page source and identify the single, most reliable selector for a stable element that is always present on the "${pageName}" page (e.g., a title, a navigation bar, or a main layout).
 
         Prefer stable accessibility identifiers when choosing a selector.
-        - On **Android**, look for `resource-id` first and then `content-desc`.
-        - On **iOS**, prefer the element's `name` or `label` attributes.
-        Prefix accessibility identifiers with `~`.
+        - On **Android**, look for 'resource-id' first and then 'content-desc'.
+        - On **iOS**, prefer the element's 'name' or 'label' attributes.
+        Prefix accessibility identifiers with '~'.
 
         **XML Page Source:**
         \`\`\`xml
@@ -183,7 +183,7 @@ async function findCorrectSelector(originalStep, pageSource, aiService) {
         2. **content-desc** (Android accessibility ID) or **name/label** (iOS)
         3. **A precise XPath**
 
-        Prefix accessibility identifiers with `~` in the selector string.
+        Prefix accessibility identifiers with '~' in the selector string.
 
         Here is the context:
 
