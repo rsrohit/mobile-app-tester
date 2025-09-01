@@ -51,12 +51,12 @@ const { getAllTests, getTestById, saveTest } = require('../services/test_service
  */
 const routes = (io) => {
   // POST /api/run-test
-  // Handles uploading an APK and running a test.  Expects fields
+  // Handles uploading an app package and running a test.  Expects fields
   // `testSteps`, `socketId`, `aiService` and `testEnvironment` in
   // the multipart/form-data body.
-  router.post('/run-test', upload.single('apkFile'), (req, res) => {
+  router.post('/run-test', upload.single('appFile'), (req, res) => {
     const testSteps = req.body.testSteps;
-    const apkFile = req.file;
+    const appFile = req.file;
     const socketId = req.body.socketId;
     const aiService = req.body.aiService || 'gemini';
     const testEnvironment = req.body.testEnvironment || 'local';
@@ -71,11 +71,11 @@ const routes = (io) => {
     console.log(
       `Received test request from socket: ${socketId} using AI service: ${aiService} on environment: ${testEnvironment}`,
     );
-    if (apkFile) console.log('APK File:', apkFile.filename);
+    if (appFile) console.log('App File:', appFile.filename);
 
     // Basic validation
-    if (!apkFile || !testSteps || !socketId) {
-      return res.status(400).json({ message: 'Missing APK/IPA file, test steps, or socket ID.' });
+    if (!appFile || !testSteps || !socketId) {
+      return res.status(400).json({ message: 'Missing app package, test steps, or socket ID.' });
     }
 
     // iOS tests can only run on BrowserStack.  Reject any attempt to run
@@ -90,12 +90,12 @@ const routes = (io) => {
     // Immediately respond to the client; test runs asynchronously
     res.status(200).json({
       message: 'Test request received and is being processed.',
-      file: apkFile.filename,
+      file: appFile.filename,
     });
 
     // Kick off the test execution asynchronously.  No need to await.
     executeTest(
-      apkFile.path,
+      appFile.path,
       testSteps,
       io,
       socketId,
@@ -165,13 +165,13 @@ const routes = (io) => {
    * Run one or more existing test definitions.  Accepts the same
    * parameters as /run-test plus `testIds`, which can be a JSON array or
    * comma-separated string of test ids.  The specified tests will be
-   * executed sequentially.  Only one APK file is required; it will be
+   * executed sequentially.  Only one app file is required; it will be
    * reused for each test.  Returns immediately with a 200 status; test
    * progress and completion events are emitted via Socket.IO.
    */
-  router.post('/run-tests', upload.single('apkFile'), (req, res) => {
+  router.post('/run-tests', upload.single('appFile'), (req, res) => {
     let testIds = req.body.testIds;
-    const apkFile = req.file;
+    const appFile = req.file;
     const socketId = req.body.socketId;
     const aiService = req.body.aiService || 'gemini';
     const testEnvironment = req.body.testEnvironment || 'local';
@@ -180,8 +180,8 @@ const routes = (io) => {
     const deviceName = req.body.deviceName || '';
     const platformVersion = req.body.platformVersion || '';
 
-    if (!apkFile || !testIds || !socketId) {
-      return res.status(400).json({ message: 'Missing APK/IPA file, test IDs, or socket ID.' });
+    if (!appFile || !testIds || !socketId) {
+      return res.status(400).json({ message: 'Missing app package, test IDs, or socket ID.' });
     }
 
     if (platform === 'ios' && testEnvironment !== 'browserstack') {
@@ -205,11 +205,11 @@ const routes = (io) => {
     console.log(
       `Received multi-test request for tests: ${testIds.join(', ')} from socket: ${socketId} using AI service: ${aiService} on environment: ${testEnvironment}`,
     );
-    if (apkFile) console.log('APK File:', apkFile.filename);
+    if (appFile) console.log('App File:', appFile.filename);
 
     res.status(200).json({
       message: 'Test run request received and is being processed.',
-      file: apkFile.filename,
+      file: appFile.filename,
     });
 
     // Helper to run tests sequentially
@@ -223,7 +223,7 @@ const routes = (io) => {
         const rawSteps = testDef.steps.join('\n');
         try {
           await executeTest(
-            apkFile.path,
+            appFile.path,
             rawSteps,
             io,
             socketId,
