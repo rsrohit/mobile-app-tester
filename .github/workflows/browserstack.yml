@@ -1,0 +1,69 @@
+name: BrowserStack Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - platform: android
+            device: 'Samsung Galaxy S23'
+            os_version: '13.0'
+            app: ./path/to/android-app.apk
+          - platform: ios
+            device: 'iPhone 15'
+            os_version: '17'
+            app: ./path/to/ios-app.ipa
+    env:
+      BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+      BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+      TEST_PATH: tests/sample_login.json
+      AI_SERVICE: gemini
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Run BrowserStack tests
+        id: run-tests
+        working-directory: backend
+        env:
+          APP_PATH: ${{ matrix.app }}
+          PLATFORM: ${{ matrix.platform }}
+          DEVICE_NAME: ${{ matrix.device }}
+          OS_VERSION: ${{ matrix.os_version }}
+        run: npm run test:browserstack
+      - name: Collect BrowserStack artifacts
+        if: ${{ steps.run-tests.outputs.session_id }}
+        working-directory: backend
+        env:
+          SESSION_ID: ${{ steps.run-tests.outputs.session_id }}
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+        run: |
+          mkdir -p artifacts
+          curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            "https://api.browserstack.com/app-automate/sessions/$SESSION_ID.json" -o session.json
+          VIDEO_URL=$(jq -r '.automation_session.video_url' session.json)
+          LOG_URL=$(jq -r '.automation_session.appium_logs_url' session.json)
+          curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" "$VIDEO_URL" -o artifacts/${SESSION_ID}-video.mp4
+          curl -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" "$LOG_URL" -o artifacts/${SESSION_ID}-appium.log
+          echo "### BrowserStack Session $SESSION_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- [Video]($VIDEO_URL)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Appium Log]($LOG_URL)" >> $GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@v4
+        if: ${{ steps.run-tests.outputs.session_id }}
+        with:
+          name: browserstack-${{ matrix.platform }}-${{ matrix.os_version }}
+          path: backend/artifacts
