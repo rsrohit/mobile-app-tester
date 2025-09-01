@@ -5,7 +5,7 @@ const convert = require('xml-js');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const FormData = require('form-data');
 // Import the updated NLP service functions
-const { translateStepsToCommands, findCorrectSelector, getPageLoadIndicator } = require('../services/nlp_service');
+const { translateStepsToCommands, findCorrectSelector } = require('../services/nlp_service');
 
 // Import shared configuration.  This loads environment variables and
 // exposes BrowserStack credentials.  Avoid calling dotenv here to
@@ -412,61 +412,54 @@ async function executeTest(
                     continue; // Move to the next step
                 }
 
-                // --- NEW: Implement intelligent, AI-driven waits ---
+                // --- NEW: Wait for element in the next step instead of a fixed pause ---
                 if (lowerCaseStep.includes('wait for app to load')) {
                     console.log(`--- Executing intelligent wait: "${step}" ---`);
-                    //pause the execution here for 10 seconds to allow any immediate loading to start
-                    await browser.pause(10000);
+
+                    // Update page context if provided
                     const match = step.match(/wait for app to load the (.*) page/i);
                     if (match && match[1]) {
                         currentPageName = match[1].trim().toLowerCase();
                         console.log(`Page context updated to: "${currentPageName}"`);
-                        // First wait for any obvious loading spinners to disappear
+                    }
+
+                    const nextStep = allSteps[i + 1];
+                    if (nextStep) {
+                        let nextSelector;
                         try {
-                            // Pass the normalised platform so the helper can choose
-                            // appropriate selectors for Android or iOS spinners.
-                            //await waitForLoadingToDisappear(browser, targetPlatform, 15000);
-                        } catch (spinnerErr) {
-                            console.log('Spinner wait error (ignored):', spinnerErr.message);
-                        }
-
-                        // Then wait for the page source to stabilise before analysing it
-                        let pageSource;
-                        try {
-                            pageSource = await waitForPageStability(browser, 30000, 1000);
-                        } catch (stabErr) {
-                            console.log('Page stability wait error (ignored):', stabErr.message);
-                            pageSource = await browser.getPageSource();
-                        }
-                        const cleanedSource = cleanPageSource(pageSource);
-
-                        let indicatorSelector = await getPageLoadIndicator(
-                            currentPageName,
-                            cleanedSource,
-                            aiService,
-                        );
-                        // Sanitize the selector string returned by the AI
-                        indicatorSelector = (indicatorSelector || '').replace(/[`"']/g, '').trim();
-                        console.log(
-                            `AI identified "${indicatorSelector}" as the key element for the ${currentPageName} page.`,
-                        );
-
-                        // If the AI couldn't find a suitable indicator, fall back to a fixed pause
-                        if (!indicatorSelector) {
-                            console.log('AI did not provide a page indicator. Falling back to a 5 second pause.');
-                            await browser.pause(5000);
-                        } else {
-                            // Wait for the indicator element to exist
-                            const indicatorElement = await findElement(indicatorSelector);
-                            await indicatorElement.waitForExist({ timeout: 30000, interval: 2000 });
-                            console.log(
-                                `Successfully verified that the ${currentPageName} page has loaded.`,
+                            const pageSource = await waitForPageStability(browser, 30000, 1000);
+                            const cleanedSource = cleanPageSource(pageSource);
+                            const nextCommandResp = await translateStepsToCommands(
+                                nextStep,
+                                cleanedSource,
+                                aiService,
                             );
+                            const nextCommand = Array.isArray(nextCommandResp)
+                                ? nextCommandResp[0]
+                                : nextCommandResp;
+                            nextSelector = nextCommand && nextCommand.selector;
+                        } catch (err) {
+                            console.log('Error determining next step selector:', err.message);
+                        }
+
+                        if (nextSelector) {
+                            try {
+                                const element = await findElement(nextSelector);
+                                await element.waitForDisplayed({ timeout: 30000, interval: 2000 });
+                                console.log('Next step element is now visible.');
+                            } catch (waitErr) {
+                                console.log('Failed waiting for next step element:', waitErr.message);
+                            }
+                        } else {
+                            console.log(
+                                'Could not derive selector for next step; falling back to 3 second pause.',
+                            );
+                            await browser.pause(3000);
                         }
                     } else {
-                        // No page name found in the step; wait a short fixed period
-                        await browser.pause(3000);
+                        console.log('No subsequent step found. Skipping dynamic wait.');
                     }
+
                     io.to(socketId).emit('step-update', { stepNumber, status: 'passed' });
                     continue; // Move to the next step
                 }
