@@ -1,6 +1,6 @@
 # Mobile App Tester
 
-An intelligent, AI-powered tool for automating mobile application testing. This project allows team members to write test steps in plain English, upload an `.apk` file, and receive real-time results as the AI translates the steps into executable actions on an Android emulator or device.
+An intelligent, AI-powered tool for automating mobile application testing. This project allows team members to write test steps in plain English, upload an `.apk` or `.ipa` file, and receive real-time results as the AI translates the steps into executable actions on an Android or iOS emulator or device.
 
 ---
 
@@ -12,6 +12,7 @@ An intelligent, AI-powered tool for automating mobile application testing. This 
 -   **Page-Aware Test Execution:** Intelligently groups test steps by page, refreshing its context after page transitions to ensure accuracy.
 -   **Self-Healing Tests:** If an element isn't found, the tool automatically uses the AI and the current page source to find the correct selector and retry the step.
 -   **Real-time Web Interface:** A clean, modern UI provides live feedback on each step of the test execution.
+-   **Android and iOS app testing support**
 
 ---
 
@@ -41,9 +42,14 @@ An intelligent, AI-powered tool for automating mobile application testing. This 
 |   |   |   |-- test\_executor.js
 |   |   |-- app.js
 |   |-- package.json
+|   |-- pom_android.json
+|   |-- pom_ios.json
 |
 |-- 📂 frontend/
 |   |-- index.html
+|
+|-- 📂 └── tests
+|   |-- sample_login.json
 |
 |-- 📂 uploads/
 |
