@@ -18,31 +18,53 @@ const config = require('../config');
 const BROWSERSTACK_USERNAME = config.browserStackUsername;
 const BROWSERSTACK_ACCESS_KEY = config.browserStackAccessKey;
 
-// --- POM Caching Logic with File Persistence ---
-const POM_FILE_PATH = path.join(__dirname, '../../pom.json');
+// --- POM Caching Logic with Platform-Specific File Persistence ---
+let POM_FILE_PATH = null;
 let pomCache = {};
 
-// Load the entire multi-app cache from the file system on startup
-try {
-    if (fs.existsSync(POM_FILE_PATH)) {
-        const data = fs.readFileSync(POM_FILE_PATH, 'utf8');
-        pomCache = JSON.parse(data);
-        console.log('Successfully loaded multi-app POM cache from pom.json');
+/**
+ * Loads the POM cache for the specified platform from disk.
+ * Defaults to an empty cache if no file exists or loading fails.
+ *
+ * @param {string} platform - Either `android` or `ios`.
+ */
+function loadCache(platform = 'android') {
+    POM_FILE_PATH = path.join(
+        __dirname,
+        `../../pom_${platform}.json`,
+    );
+    try {
+        if (fs.existsSync(POM_FILE_PATH)) {
+            const data = fs.readFileSync(POM_FILE_PATH, 'utf8');
+            pomCache = JSON.parse(data);
+            console.log(
+                `Successfully loaded ${platform} POM cache from ${path.basename(POM_FILE_PATH)}`,
+            );
+        } else {
+            pomCache = {};
+        }
+    } catch (error) {
+        console.error(
+            `Could not load POM cache from ${path.basename(POM_FILE_PATH)}:`,
+            error,
+        );
+        pomCache = {}; // Start with an empty cache if loading fails
     }
-} catch (error) {
-    console.error('Could not load POM cache from pom.json:', error);
-    pomCache = {}; // Start with an empty cache if loading fails
 }
 
 /**
- * Saves the current state of the entire POM cache to the pom.json file.
+ * Saves the current state of the POM cache to the platform-specific file.
  */
 function saveCache() {
+    if (!POM_FILE_PATH) return;
     try {
         fs.writeFileSync(POM_FILE_PATH, JSON.stringify(pomCache, null, 2), 'utf8');
-        console.log('POM cache saved to pom.json');
+        console.log(`POM cache saved to ${path.basename(POM_FILE_PATH)}`);
     } catch (error) {
-        console.error('Could not save POM cache to pom.json:', error);
+        console.error(
+            `Could not save POM cache to ${path.basename(POM_FILE_PATH)}:`,
+            error,
+        );
     }
 }
 
@@ -258,6 +280,10 @@ async function executeTest(
     // Normalise the platform once so that helper functions can use it.  This
     // variable persists through the lifetime of the test execution.
     const targetPlatform = (platform || 'android').toLowerCase();
+
+    // Load the platform-specific POM cache before executing any steps
+    loadCache(targetPlatform);
+
     try {
         let capabilities;
         let appiumOptions = {};
