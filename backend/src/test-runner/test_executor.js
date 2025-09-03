@@ -615,12 +615,20 @@ async function executeTest(
  * @returns {string} The extracted element name or the original step.
  */
 function extractElementName(step) {
-    // This regex looks for text in single quotes, or the last word if no quotes are found.
-    const quoteMatch = step.match(/'([^']+)'/);
-    if (quoteMatch && quoteMatch[1]) {
-        return `'${quoteMatch[1]}'`;
+    // First, look for a custom *element* pattern defined in the step.
+    const starMatch = step.match(/\*([^*]+)\*/);
+    if (starMatch && starMatch[1]) {
+        return starMatch[1].trim();
     }
-    const words = step.trim().split(' ');
+
+    // Next, check for text wrapped in various quote styles (single, double, or curly).
+    const quoteMatch = step.match(/["'“”‘’]([^"'“”‘’]+)["'“”‘’]/);
+    if (quoteMatch && quoteMatch[1]) {
+        return quoteMatch[1].trim();
+    }
+
+    // Fallback: return the last word in the step if no markers are found.
+    const words = step.trim().split(/\s+/);
     return words[words.length - 1];
 }
 

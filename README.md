@@ -166,6 +166,15 @@ You can also place these values in a `.env` file in the `backend` directory.
       - Enter your test steps in plain English.
       - Click **"Run Test"** and watch the magic happen\!
 
+### Writing Test Steps
+
+To ensure selectors are saved with meaningful names in the Page Object Model (POM), follow these formatting rules when writing steps:
+
+- Enclose element names in asterisks, e.g., `*Login*`.
+- Wrap any input data in double quotes, e.g., `"user@example.com"`.
+
+Example: `Click on *Login* button` or `Enter "password123" into *Password* field`.
+
 -----
 
 ## Resource Links
