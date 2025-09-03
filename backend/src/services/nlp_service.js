@@ -18,6 +18,13 @@ const DEEPSEEK_API_KEY = config.deepseekApiKey;
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
+// --- Debugging: track total API calls ---
+let apiCallCount = 0;
+
+function getApiCallCount() {
+    return apiCallCount;
+}
+
 /**
  * Translates a string of natural language test steps into a structured
  * JSON array of commands using the selected AI service.
@@ -100,6 +107,7 @@ async function getPageLoadIndicator(pageName, pageSource, aiService) {
  * @param {string} task - The type of task ('translate' or 'heal').
  */
 async function callGemini(prompt, task) {
+    apiCallCount++;
     console.log('Sending request to Gemini API...');
     const payload = { contents: [{ parts: [{ text: prompt }] }] };
     try {
@@ -134,6 +142,7 @@ async function callGemini(prompt, task) {
  * @param {string} task - The type of task ('translate' or 'heal').
  */
 async function callDeepseek(prompt, task) {
+    apiCallCount++;
     console.log('Sending request to Deepseek API...');
     const payload = {
         model: 'deepseek-chat',
@@ -230,4 +239,5 @@ module.exports = {
     translateStepsToCommands,
     findCorrectSelector,
     getPageLoadIndicator, // Export the new function
+    getApiCallCount,
 };

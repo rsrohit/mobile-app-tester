@@ -5,7 +5,7 @@ const convert = require('xml-js');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const FormData = require('form-data');
 // Import the updated NLP service functions
-const { translateStepsToCommands, findCorrectSelector } = require('../services/nlp_service');
+const { translateStepsToCommands, findCorrectSelector, getApiCallCount } = require('../services/nlp_service');
 
 // Import shared configuration.  This loads environment variables and
 // exposes BrowserStack credentials.  Avoid calling dotenv here to
@@ -580,10 +580,11 @@ async function executeTest(
         io.to(socketId).emit('test-error', {
             message: error.message || 'A critical error occurred in the test executor.',
         });
-     } finally {
-         try {
-             // Always attempt to persist the POM cache to disk at the end of a test.
-             saveCache();
+    } finally {
+        console.log(`Total AI API calls: ${getApiCallCount()}`);
+        try {
+            // Always attempt to persist the POM cache to disk at the end of a test.
+            saveCache();
          } catch (cacheError) {
              console.error('Failed to persist POM cache on shutdown:', cacheError);
          }
