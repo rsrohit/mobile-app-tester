@@ -163,8 +163,46 @@ You can also place these values in a `.env` file in the `backend` directory.
       - Open your web browser and go to **http://localhost:3000**.
       - Select your desired AI service.
       - Upload your `.apk` file.
-      - Enter your test steps in plain English.
+      - nter your test steps in plain English. When referencing UI elements, enclose the element name in `*` (for example, `Tap on *Login* button`).
       - Click **"Run Test"** and watch the magic happen\!
+
+-----
+
+## Writing Test Steps and Page Objects
+
+### Element Names in Steps
+
+When describing an action on a specific element, wrap the element name in asterisks so the parser can easily extract it:
+
+- `Tap on *Login* button`
+- `Enter valid username into *Email* field`
+
+### POM Key Format
+
+Selectors cached by the system are stored in `pom_android.json` and `pom_ios.json` with keys using the format:
+
+```
+page - element - strategy
+```
+
+Examples:
+
+```json
+{
+  "login - Email - resource-id": "au.com.bws.debug:id/emailEditText",
+  "login - Password - accessibility-id": "~Password"
+}
+```
+
+### Supported Locator Strategies
+
+The strategy portion of the key tells the engine how to locate the element. The following strategies are currently supported:
+
+- `resource-id` – Android resource ids like `au.com.bws.debug:id/loginBtn`
+- `accessibility-id` – iOS accessibility ids or Android content-descriptions prefixed with `~`
+- `xpath` – XPath expressions beginning with `//` or `(`
+
+These strategies appear at the end of each key, letting testers know what to expect in the POM files.
 
 -----
 

@@ -1,11 +1,11 @@
 {
   "au.com.bws.uat": {
-    "initial - button - accessibility-id": "~LOG IN",
-    "login - ‘Email’ - accessibility-id": "~Email",
-    "login - ‘Password’ - accessibility-id": "~Password",
-    "login - button - accessibility-id": "~Log in",
-    "home - page. - accessibility-id": "~Delivery",
-    "home - 'search' - accessibility-id": "~What can we get you?"
+    "initial - LOG IN - accessibility-id": "~LOG IN",
+    "login - Email - accessibility-id": "~Email",
+    "login - Password - accessibility-id": "~Password",
+    "login - LOG IN - accessibility-id": "~Log in",
+    "home - Delivery - accessibility-id": "~Delivery",
+    "home - search - accessibility-id": "~What can we get you?"
   }
 }
 
