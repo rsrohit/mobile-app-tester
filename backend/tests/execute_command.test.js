@@ -4,7 +4,7 @@ const assert = require('node:assert');
 process.env.GEMINI_API_KEY = 'dummy';
 process.env.DEEPSEEK_API_KEY = 'dummy';
 
-const { executeCommand } = require('./test_executor');
+const { executeCommand } = require('../src/test-runner/test_executor');
 
 const contexts = [
     {
