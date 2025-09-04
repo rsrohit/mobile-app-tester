@@ -4,7 +4,7 @@ const assert = require('node:assert');
 process.env.GEMINI_API_KEY = 'dummy';
 process.env.DEEPSEEK_API_KEY = 'dummy';
 
-const { determineLocatorStrategy } = require('../src/test-runner/test_executor');
+const { determineLocatorStrategy } = require('../src/test-runner/command_utils');
 
 test('detects accessibility-id strategy', () => {
     assert.strictEqual(determineLocatorStrategy('~foo'), 'accessibility-id');
