@@ -621,12 +621,6 @@ function extractElementName(step) {
         return `*${asteriskMatch[1]}*`;
     }
 
-    // Fallback to text in single quotes, e.g. 'element'.
-    const quoteMatch = step.match(/'([^']+)'/);
-    if (quoteMatch && quoteMatch[1]) {
-        return `'${quoteMatch[1]}'`;
-    }
-
     // Finally, return the last word if no special delimiters are found.
     const words = step.trim().split(' ');
     return words[words.length - 1];
