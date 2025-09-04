@@ -690,9 +690,12 @@ async function executeCommand(
     };
 
     // --- NEW, MORE ROBUST EXECUTION FLOW ---
+    // Derive the locator strategy from the AI-provided selector. If the
+    // AI omits a selector, fall back to "unknown" so the cache key is
+    // consistently formed.
+    const strategy = determineLocatorStrategy(safeCommand.selector || '');
     const elementName = extractElementName(safeCommand.original_step);
-    const initialStrategy = determineLocatorStrategy(safeCommand.selector);
-    const cacheKey = `${currentPageName} - ${elementName} - ${initialStrategy}`;
+    const cacheKey = `${currentPageName} - ${elementName} - ${strategy}`;
     let element;
     let finalSelector;
 
