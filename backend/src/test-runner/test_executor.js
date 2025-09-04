@@ -37,6 +37,25 @@ function loadCache(platform = 'android') {
         if (fs.existsSync(POM_FILE_PATH)) {
             const data = fs.readFileSync(POM_FILE_PATH, 'utf8');
             pomCache = JSON.parse(data);
+            // Migrate old cache entries that lack a strategy suffix in the key
+            const migratedCache = {};
+            let needsMigration = false;
+            for (const [key, selector] of Object.entries(pomCache)) {
+                const parts = key.split(' - ');
+                if (parts.length === 2) {
+                    const [page, element] = parts;
+                    const strategy = determineLocatorStrategy(selector);
+                    migratedCache[`${page} - ${element} - ${strategy}`] = selector;
+                    needsMigration = true;
+                } else {
+                    migratedCache[key] = selector;
+                }
+            }
+            pomCache = migratedCache;
+            if (needsMigration) {
+                // Persist the migrated cache so future runs use the new format
+                saveCache();
+            }
             console.log(
                 `Successfully loaded ${platform} POM cache from ${path.basename(POM_FILE_PATH)}`,
             );
@@ -627,6 +646,19 @@ function extractElementName(step) {
 }
 
 /**
+ * Determines the locator strategy implied by a selector string.
+ * @param {string} selector - The raw selector string.
+ * @returns {string} The inferred strategy (e.g., 'accessibility-id').
+ */
+function determineLocatorStrategy(selector = '') {
+    if (!selector) return 'unknown';
+    if (selector.startsWith('~')) return 'accessibility-id';
+    if (selector.includes(':id/') || selector.includes('resource-id')) return 'resource-id';
+    if (selector.startsWith('//') || selector.startsWith('(')) return 'xpath';
+    return 'unknown';
+}
+
+/**
  * Helper function to execute a single command with robust selector strategies and self-healing.
  * @param {object} browser - The WebdriverIO browser instance.
  * @param {object} command - The command object to execute.
@@ -659,7 +691,8 @@ async function executeCommand(
 
     // --- NEW, MORE ROBUST EXECUTION FLOW ---
     const elementName = extractElementName(safeCommand.original_step);
-    const cacheKey = `${currentPageName} - ${elementName}`;
+    const initialStrategy = determineLocatorStrategy(safeCommand.selector);
+    const cacheKey = `${currentPageName} - ${elementName} - ${initialStrategy}`;
     let element;
     let finalSelector;
 
@@ -723,10 +756,12 @@ async function executeCommand(
     // 4. Perform action and save to cache
     await performAction(element);
     if (finalSelector) {
-        appSelectorCache[cacheKey] = finalSelector;
+        const finalStrategy = determineLocatorStrategy(finalSelector);
+        const finalCacheKey = `${currentPageName} - ${elementName} - ${finalStrategy}`;
+        appSelectorCache[finalCacheKey] = finalSelector;
         saveCache();
     }
     await browser.pause(1000);
 }
 
-module.exports = { executeTest, extractElementName };
+module.exports = { executeTest, extractElementName, determineLocatorStrategy };

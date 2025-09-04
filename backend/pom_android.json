@@ -1,11 +1,12 @@
 {
   "au.com.bws.debug": {
-    "login - ‘Email’": "au.com.bws.debug:id/emailEditText",
-    "login - ‘Password’": "au.com.bws.debug:id/passwordEditText",
-    "login - button": "au.com.bws.debug:id/loginBtn",
-    "home - 'search'": "au.com.bws.debug:id/search_button",
-    "initial - button": "au.com.bws.debug:id/loginBtn",
-    "home - page.": "au.com.bws.debug:id/delivery_option_container"
+    "login - ‘Email’ - resource-id": "au.com.bws.debug:id/emailEditText",
+    "login - ‘Password’ - resource-id": "au.com.bws.debug:id/passwordEditText",
+    "login - button - resource-id": "au.com.bws.debug:id/loginBtn",
+    "home - 'search' - resource-id": "au.com.bws.debug:id/search_button",
+    "initial - button - resource-id": "au.com.bws.debug:id/loginBtn",
+    "home - page. - resource-id": "au.com.bws.debug:id/delivery_option_container"
   },
   "au.com.bws.uat": {}
 }
+
