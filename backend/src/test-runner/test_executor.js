@@ -500,32 +500,80 @@ async function executeTest(
 
                     const nextStep = allSteps[i + 1];
                     if (nextStep) {
-                        let nextSelector;
-                        try {
-                            const pageSource = await waitForPageStability(browser, 30000, 1000);
-                            const cleanedSource = cleanPageSource(pageSource);
-                            const nextCommandResp = await translateStepsToCommands(
-                                nextStep,
-                                cleanedSource,
-                                aiService,
-                            );
-                            const nextCommand = Array.isArray(nextCommandResp)
-                                ? nextCommandResp[0]
-                                : nextCommandResp;
-                            nextSelector = nextCommand && nextCommand.selector;
-                        } catch (err) {
-                            console.log('Error determining next step selector:', err.message);
+                        const elementName = extractElementName(nextStep);
+                        const prefix = `${currentPageName} - ${elementName} -`;
+                        let cacheKey = Object.keys(appSelectorCache).find((k) =>
+                            k.startsWith(prefix),
+                        );
+                        let finalSelector;
+
+                        // Try cached selector if available
+                        if (cacheKey) {
+                            const cachedSelector = appSelectorCache[cacheKey];
+                            try {
+                                const element = await findElement(cachedSelector);
+                                await element.waitForDisplayed({
+                                    timeout: 30000,
+                                    interval: 2000,
+                                });
+                                console.log('Next step element is now visible.');
+                                finalSelector = cachedSelector;
+                            } catch (err) {
+                                console.log(
+                                    'Cached selector failed. Removing from cache and retrying with AI.',
+                                    err.message,
+                                );
+                                delete appSelectorCache[cacheKey];
+                                saveCache();
+                            }
                         }
 
-                        if (nextSelector) {
+                        // If no valid cached selector, ask the AI
+                        if (!finalSelector) {
+                            let nextSelector;
                             try {
-                                const element = await findElement(nextSelector);
-                                await element.waitForDisplayed({ timeout: 30000, interval: 2000 });
-                                console.log('Next step element is now visible.');
-                            } catch (waitErr) {
-                                console.log('Failed waiting for next step element:', waitErr.message);
+                                const pageSource = await waitForPageStability(
+                                    browser,
+                                    30000,
+                                    1000,
+                                );
+                                const cleanedSource = cleanPageSource(pageSource);
+                                const nextCommandResp = await translateStepsToCommands(
+                                    nextStep,
+                                    cleanedSource,
+                                    aiService,
+                                );
+                                const nextCommand = Array.isArray(nextCommandResp)
+                                    ? nextCommandResp[0]
+                                    : nextCommandResp;
+                                nextSelector = nextCommand && nextCommand.selector;
+                            } catch (err) {
+                                console.log('Error determining next step selector:', err.message);
                             }
-                        } else {
+
+                            if (nextSelector) {
+                                try {
+                                    const element = await findElement(nextSelector);
+                                    await element.waitForDisplayed({
+                                        timeout: 30000,
+                                        interval: 2000,
+                                    });
+                                    console.log('Next step element is now visible.');
+                                    const strategy = determineLocatorStrategy(nextSelector);
+                                    cacheKey = `${currentPageName} - ${elementName} - ${strategy}`;
+                                    appSelectorCache[cacheKey] = nextSelector;
+                                    saveCache();
+                                    finalSelector = nextSelector;
+                                } catch (waitErr) {
+                                    console.log(
+                                        'Failed waiting for next step element:',
+                                        waitErr.message,
+                                    );
+                                }
+                            }
+                        }
+
+                        if (!finalSelector) {
                             console.log(
                                 'Could not derive selector for next step; falling back to 3 second pause.',
                             );
