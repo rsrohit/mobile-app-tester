@@ -5,7 +5,7 @@ const assert = require('node:assert');
 process.env.GEMINI_API_KEY = 'dummy';
 process.env.DEEPSEEK_API_KEY = 'dummy';
 
-const { extractElementName, determineLocatorStrategy } = require('./test_executor');
+const { extractElementName, determineLocatorStrategy } = require('../src/test-runner/test_executor');
 
 test('extracts element name wrapped in asterisks', () => {
     const step = "Tap the *Login* button";
