@@ -767,4 +767,9 @@ async function executeCommand(
     await browser.pause(1000);
 }
 
-module.exports = { executeTest, extractElementName, determineLocatorStrategy };
+module.exports = {
+    executeTest,
+    extractElementName,
+    determineLocatorStrategy,
+    executeCommand,
+};
