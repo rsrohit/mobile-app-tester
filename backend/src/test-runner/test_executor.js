@@ -391,56 +391,71 @@ async function executeTest(
         const appSelectorCache = pomCache[appId];
 
         // --- NEW: Define findElement at a higher scope ---
-        const findElement = async (selector) => {
-            if (!selector) throw new Error('Selector is null or undefined.');
+        const findElement = async (selectorEntry) => {
+            if (!selectorEntry) throw new Error('Selector is null or undefined.');
 
-            if (selector.toLowerCase().startsWith('resource-id:')) {
-                const resourceId = selector.substring(12);
-                console.log(`Attempting to find by parsed Resource ID: ${resourceId}`);
-                return await browser.$(`id:${resourceId}`);
+            let selector = selectorEntry;
+            let strategy = null;
+            if (typeof selectorEntry === 'object') {
+                selector = selectorEntry.selector;
+                strategy = selectorEntry.strategy;
             }
-            if (selector.toLowerCase().startsWith('resource-id=')) {
-                const resourceId = selector.substring(12);
-                console.log(`Attempting to find by parsed Resource ID: ${resourceId}`);
-                return await browser.$(`id:${resourceId}`);
+            if (!strategy) {
+                strategy = detectLocatorStrategy(selector);
             }
-            if (selector.toLowerCase().startsWith('new uiselector')) {
-                let sanitizedSelector = selector;
-                const resourceIdMatch = selector.match(/resourceId\(([^)]+)\)/);
-                if (resourceIdMatch && !resourceIdMatch[1].startsWith('"')) {
-                    sanitizedSelector = selector.replace(resourceIdMatch[1], `"${resourceIdMatch[1]}"`);
+
+            switch (strategy) {
+                case 'resource-id': {
+                    const resourceId = selector
+                        .replace(/^resource-id[:=]?/, '')
+                        .replace(/^id:/, '');
+                    console.log(`Attempting to find by parsed Resource ID: ${resourceId}`);
+                    return await browser.$(`id:${resourceId}`);
                 }
-                console.log(`Attempting to find by UiSelector: ${sanitizedSelector}`);
-                return await browser.$(`android=${sanitizedSelector}`);
+                case 'android uiautomator': {
+                    let sanitizedSelector = selector;
+                    const resourceIdMatch = selector.match(/resourceId\(([^)]+)\)/);
+                    if (resourceIdMatch && !resourceIdMatch[1].startsWith('"')) {
+                        sanitizedSelector = selector.replace(
+                            resourceIdMatch[1],
+                            `"${resourceIdMatch[1]}"`,
+                        );
+                    }
+                    console.log(`Attempting to find by UiSelector: ${sanitizedSelector}`);
+                    return await browser.$(`android=${sanitizedSelector}`);
+                }
+                case 'accessibility id':
+                    console.log(`Attempting to find by Accessibility ID: ${selector}`);
+                    return await browser.$(
+                        selector.startsWith('~') ? selector : `~${selector}`,
+                    );
+                case 'name': {
+                    const name = selector.replace(/^name=/i, '');
+                    console.log(`Attempting to find by Name: ${name}`);
+                    return await browser.$(`~${name}`);
+                }
+                case 'label': {
+                    const label = selector.replace(/^label=/i, '');
+                    console.log(`Attempting to find by Label: ${label}`);
+                    return await browser.$(`//*[@label="${label}"]`);
+                }
+                case 'xpath':
+                    console.log(`Attempting to find by XPath: ${selector}`);
+                    return await browser.$(selector);
+                case 'text':
+                default: {
+                    console.log(
+                        `Attempting to find by flexible XPath for text: "${selector}"`,
+                    );
+                    const lowered = selector.toLowerCase();
+                    const xpathSelector =
+                        `//*[contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
+                        `or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
+                        `or contains(translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
+                        `or contains(translate(@label, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}")]`;
+                    return await browser.$(xpathSelector);
+                }
             }
-            if (selector.startsWith('~')) {
-                console.log(`Attempting to find by Accessibility ID: ${selector}`);
-                return await browser.$(selector);
-            }
-            if (selector.toLowerCase().startsWith('name=')) {
-                const name = selector.substring(5);
-                console.log(`Attempting to find by Name: ${name}`);
-                return await browser.$(`~${name}`);
-            }
-            if (selector.toLowerCase().startsWith('label=')) {
-                const label = selector.substring(6);
-                console.log(`Attempting to find by Label: ${label}`);
-                return await browser.$(`//*[@label="${label}"]`);
-            }
-            if (selector.includes(':id/')) {
-                console.log(`Attempting to find by Resource ID: ${selector}`);
-                return await browser.$(`id:${selector}`);
-            }
-            console.log(
-                `Attempting to find by flexible XPath for text: "${selector}"`,
-            );
-            const lowered = selector.toLowerCase();
-            const xpathSelector =
-                `//*[contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
-                `or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
-                `or contains(translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
-                `or contains(translate(@label, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}")]`;
-            return await browser.$(xpathSelector);
         };
 
         // --- PAGE-AWARE GROUPING LOGIC ---
@@ -516,6 +531,27 @@ async function executeTest(
                         console.log('No subsequent step found. Skipping dynamic wait.');
                     }
 
+                    io.to(socketId).emit('step-update', { stepNumber, status: 'passed' });
+                    continue; // Move to the next step
+                }
+
+                // --- NEW: Use cached selector to avoid AI call if available ---
+                const cachedElementName = extractElementName(step);
+                const cachedKey = `${currentPageName} - ${cachedElementName}`;
+                if (appSelectorCache[cachedKey]) {
+                    console.log(
+                        `--- Executing cached step: "${step}" on page: "${currentPageName}" ---`,
+                    );
+                    const commandToExecute = inferCommandFromStep(step);
+                    await executeCommand(
+                        browser,
+                        commandToExecute,
+                        aiService,
+                        appSelectorCache,
+                        currentPageName,
+                        step,
+                        findElement,
+                    );
                     io.to(socketId).emit('step-update', { stepNumber, status: 'passed' });
                     continue; // Move to the next step
                 }
@@ -616,15 +652,61 @@ async function executeTest(
  * @returns {string} The extracted element name or the original step.
  */
 function extractElementName(step) {
-    // Look for a custom *element* pattern defined in the step.
-    const starMatch = step.match(/\*([^*]+)\*/);
-    if (starMatch && starMatch[1]) {
-        return starMatch[1].trim();
+    // This regex looks for text in single quotes, or the last word if no quotes are found.
+    const quoteMatch = step.match(/'([^']+)'/);
+    if (quoteMatch && quoteMatch[1]) {
+        return `'${quoteMatch[1]}'`;
     }
 
     // Fallback: return the last word in the step if no markers are found.
     const words = step.trim().split(/\s+/);
     return words[words.length - 1];
+}
+
+/**
+ * Infers a basic command object from a step without using the AI service.
+ * Supports click, setValue, and verifyVisible commands.
+ * @param {string} step - The natural language step.
+ * @returns {object} A minimal command object.
+ */
+function inferCommandFromStep(step) {
+    const lower = step.toLowerCase();
+    const valueMatch = step.match(/"([^\"]*)"/);
+    if (lower.includes('enter') || lower.includes('type') || lower.includes('set')) {
+        return {
+            command: 'setValue',
+            value: valueMatch ? valueMatch[1] : '',
+            original_step: step,
+        };
+    }
+    if (lower.includes('verify')) {
+        return { command: 'verifyVisible', original_step: step };
+    }
+    return { command: 'click', original_step: step };
+}
+
+/**
+ * Determines the locator strategy for a given selector string.
+ * @param {string} selector - The raw selector string.
+ * @returns {string} The detected strategy.
+ */
+function detectLocatorStrategy(selector) {
+    if (!selector) return 'text';
+    const trimmed = selector.trim();
+    const lower = trimmed.toLowerCase();
+    if (trimmed.startsWith('~')) return 'accessibility id';
+    if (
+        lower.startsWith('resource-id:') ||
+        lower.startsWith('resource-id=') ||
+        trimmed.includes(':id/')
+    ) {
+        return 'resource-id';
+    }
+    if (lower.startsWith('new uiselector')) return 'android uiautomator';
+    if (lower.startsWith('name=')) return 'name';
+    if (lower.startsWith('label=')) return 'label';
+    if (trimmed.startsWith('//') || trimmed.startsWith('(')) return 'xpath';
+    return 'text';
 }
 
 /**
@@ -664,11 +746,14 @@ async function executeCommand(
     let element;
     let finalSelector;
 
-    // 1. Try the cache first
-    if (appSelectorCache[cacheKey]) {
+    // 1. Try the cache first if no selector provided
+    if (!safeCommand.selector && appSelectorCache[cacheKey]) {
         try {
             const cachedSelector = appSelectorCache[cacheKey];
-            console.log(`Found cached selector for step "${cacheKey}": "${cachedSelector}"`);
+            console.log(
+                `Found cached selector for step "${cacheKey}":`,
+                cachedSelector,
+            );
             element = await findElement(cachedSelector);
             await element.waitForExist({ timeout: 5000 });
             console.log('Successfully found element using cached selector.');
@@ -687,7 +772,7 @@ async function executeCommand(
             // This will make it jump directly to the catch block for self-healing
             throw new Error('AI did not provide an initial selector.');
         }
-        console.log(`Executing step with AI-provided selector: "${safeCommand.selector}"`);
+        console.log('Executing step with provided selector:', safeCommand.selector);
         element = await findElement(safeCommand.selector);
         await element.waitForExist({ timeout: 10000 });
         console.log('Found element successfully with AI-provided selector.');
@@ -724,7 +809,12 @@ async function executeCommand(
     // 4. Perform action and save to cache
     await performAction(element);
     if (finalSelector) {
-        appSelectorCache[cacheKey] = finalSelector;
+        const selectorString =
+            typeof finalSelector === 'string' ? finalSelector : finalSelector.selector;
+        appSelectorCache[cacheKey] = {
+            selector: selectorString,
+            strategy: detectLocatorStrategy(selectorString),
+        };
         saveCache();
     }
     await browser.pause(1000);

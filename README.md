@@ -175,6 +175,8 @@ To ensure selectors are saved with meaningful names in the Page Object Model (PO
 
 Example: `Click on *Login* button` or `Enter "password123" into *Password* field`.
 
+Cached selectors now store both the locator value and the strategy used to find the element so that repeat test runs can reuse them without additional AI lookups.
+
 -----
 
 ## Resource Links
