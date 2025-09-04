@@ -618,7 +618,7 @@ function extractElementName(step) {
     // First, look for text wrapped in asterisks, e.g. *element*.
     const asteriskMatch = step.match(/\*([^*]+)\*/);
     if (asteriskMatch && asteriskMatch[1]) {
-        return `*${asteriskMatch[1]}*`;
+        return asteriskMatch[1].trim();
     }
 
     // Finally, return the last word if no special delimiters are found.
