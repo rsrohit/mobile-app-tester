@@ -1,8 +1,6 @@
 const { remote } = require('webdriverio');
 const fs = require('fs');
 const path = require('path');
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
-const FormData = require('form-data');
 const {
     cleanPageSource,
     waitForLoadingToDisappear,
@@ -11,55 +9,11 @@ const {
 // Import the updated NLP service functions
 const { translateStepsToCommands, findCorrectSelector } = require('../services/nlp_service');
 const { loadCache, saveCache, pomCache } = require('./pom_cache');
-
-// Import shared configuration.  This loads environment variables and
-// exposes BrowserStack credentials.  Avoid calling dotenv here to
-// prevent multiple config loads.
-const config = require('../config');
-
-// --- BrowserStack Credentials ---
-// Read credentials from config.  If either credential is missing,
-// BrowserStack tests will throw an explicit error when attempted.
-const BROWSERSTACK_USERNAME = config.browserStackUsername;
-const BROWSERSTACK_ACCESS_KEY = config.browserStackAccessKey;
-
-/**
- * Uploads a mobile app package (APK or IPA) to BrowserStack and returns the app_url.
- * BrowserStack accepts both Android (.apk) and iOS (.ipa) binaries.  The caller
- * is responsible for ensuring only supported file types are provided.
- *
- * @param {string} filePath - The local path to the .apk or .ipa file.
- * @returns {Promise<string>} The app_url from BrowserStack.
- */
-async function uploadToBrowserStack(filePath) {
-    if (!BROWSERSTACK_USERNAME || !BROWSERSTACK_ACCESS_KEY) {
-        throw new Error(
-            'BrowserStack credentials are missing. Set BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY in your environment.'
-        );
-    }
-    console.log('Uploading app to BrowserStack...');
-
-    const form = new FormData();
-    form.append('file', fs.createReadStream(filePath));
-
-    const response = await fetch('https://api-cloud.browserstack.com/app-automate/upload', {
-        method: 'POST',
-        headers: {
-            Authorization:
-                'Basic ' + Buffer.from(`${BROWSERSTACK_USERNAME}:${BROWSERSTACK_ACCESS_KEY}`).toString('base64'),
-        },
-        body: form,
-    });
-
-    if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`BrowserStack upload failed: ${errorBody}`);
-    }
-
-    const data = await response.json();
-    console.log('BrowserStack upload successful. App URL:', data.app_url);
-    return data.app_url;
-}
+const {
+    uploadToBrowserStack,
+    BROWSERSTACK_USERNAME,
+    BROWSERSTACK_ACCESS_KEY,
+} = require('./browserstack_utils');
 
 /**
  * Executes a series of structured commands on a mobile device using WebdriverIO and Appium.
