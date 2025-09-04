@@ -615,11 +615,13 @@ async function executeTest(
  * @returns {string} The extracted element name or the original step.
  */
 function extractElementName(step) {
-    // This regex looks for text in single quotes, or the last word if no quotes are found.
-    const quoteMatch = step.match(/'([^']+)'/);
-    if (quoteMatch && quoteMatch[1]) {
-        return `'${quoteMatch[1]}'`;
+    // First, look for text wrapped in asterisks, e.g. *element*.
+    const asteriskMatch = step.match(/\*([^*]+)\*/);
+    if (asteriskMatch && asteriskMatch[1]) {
+        return asteriskMatch[1].trim();
     }
+
+    // Finally, return the last word if no special delimiters are found.
     const words = step.trim().split(' ');
     return words[words.length - 1];
 }
@@ -727,4 +729,4 @@ async function executeCommand(
     await browser.pause(1000);
 }
 
-module.exports = { executeTest };
+module.exports = { executeTest, extractElementName };
