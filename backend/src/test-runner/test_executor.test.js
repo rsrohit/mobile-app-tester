@@ -28,3 +28,8 @@ test('detects resource-id strategy', () => {
 test('detects xpath strategy', () => {
     assert.strictEqual(determineLocatorStrategy('//android.widget.TextView'), 'xpath');
 });
+
+test('defaults to unknown strategy when selector is missing', () => {
+    assert.strictEqual(determineLocatorStrategy(), 'unknown');
+    assert.strictEqual(determineLocatorStrategy(''), 'unknown');
+});
