@@ -1,270 +1,24 @@
 const { remote } = require('webdriverio');
 const fs = require('fs');
 const path = require('path');
-const convert = require('xml-js');
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
-const FormData = require('form-data');
+const {
+    cleanPageSource,
+    waitForLoadingToDisappear,
+    waitForPageStability,
+} = require('./page_utils');
 // Import the updated NLP service functions
-const { translateStepsToCommands, findCorrectSelector } = require('../services/nlp_service');
-
-// Import shared configuration.  This loads environment variables and
-// exposes BrowserStack credentials.  Avoid calling dotenv here to
-// prevent multiple config loads.
-const config = require('../config');
-
-// --- BrowserStack Credentials ---
-// Read credentials from config.  If either credential is missing,
-// BrowserStack tests will throw an explicit error when attempted.
-const BROWSERSTACK_USERNAME = config.browserStackUsername;
-const BROWSERSTACK_ACCESS_KEY = config.browserStackAccessKey;
-
-// --- POM Caching Logic with Platform-Specific File Persistence ---
-let POM_FILE_PATH = null;
-let pomCache = {};
-
-/**
- * Loads the POM cache for the specified platform from disk.
- * Defaults to an empty cache if no file exists or loading fails.
- *
- * @param {string} platform - Either `android` or `ios`.
- */
-function loadCache(platform = 'android') {
-    POM_FILE_PATH = path.join(
-        __dirname,
-        `../../pom_${platform}.json`,
-    );
-    try {
-        if (fs.existsSync(POM_FILE_PATH)) {
-            const data = fs.readFileSync(POM_FILE_PATH, 'utf8');
-            pomCache = JSON.parse(data);
-            console.log(
-                `Successfully loaded ${platform} POM cache from ${path.basename(POM_FILE_PATH)}`,
-            );
-        } else {
-            pomCache = {};
-        }
-    } catch (error) {
-        console.error(
-            `Could not load POM cache from ${path.basename(POM_FILE_PATH)}:`,
-            error,
-        );
-        pomCache = {}; // Start with an empty cache if loading fails
-    }
-}
-
-/**
- * Saves the current state of the POM cache to the platform-specific file.
- */
-function saveCache() {
-    if (!POM_FILE_PATH) return;
-    try {
-        fs.writeFileSync(POM_FILE_PATH, JSON.stringify(pomCache, null, 2), 'utf8');
-        console.log(`POM cache saved to ${path.basename(POM_FILE_PATH)}`);
-    } catch (error) {
-        console.error(
-            `Could not save POM cache to ${path.basename(POM_FILE_PATH)}:`,
-            error,
-        );
-    }
-}
-
-/**
- * Reduces the size of the XML to avoid API request limits.
- * @param {string} xml - The raw XML page source from Appium.
- * @returns {string} A cleaned, smaller XML string.
- */
-function cleanPageSource(xml) {
-    try {
-        const options = { compact: true, ignoreComment: true, spaces: 2 };
-        const json = convert.xml2js(xml, options);
-
-        // Recursive function to remove non-essential attributes from each node
-        function cleanNode(node) {
-            if (!node) return;
-            // Retain both Android and iOS specific attributes so the AI
-            // service has enough context to build reliable selectors.
-            const attributesToKeep = [
-                // --- Common / Android attributes ---
-                'class',
-                'resource-id',
-                'content-desc',
-                'text',
-                'package',
-                'checkable',
-                'checked',
-                'clickable',
-                'enabled',
-                'selected',
-                // --- iOS attributes ---
-                'name',
-                'label',
-                'value',
-                'visible',
-                'accessible',
-                'type',
-                'x',
-                'y',
-                'width',
-                'height',
-                'index',
-            ];
-            if (node._attributes) {
-                const newAttributes = {};
-                for (const key of attributesToKeep) {
-                    if (node._attributes[key] !== undefined) {
-                        newAttributes[key] = node._attributes[key];
-                    }
-                }
-                node._attributes = newAttributes;
-            }
-            // Recurse through all children nodes
-            for (const key in node) {
-                if (key !== '_attributes' && key !== '_text') {
-                    if (Array.isArray(node[key])) {
-                        node[key].forEach(cleanNode);
-                    } else if (typeof node[key] === 'object') {
-                        cleanNode(node[key]);
-                    }
-                }
-            }
-        }
-        cleanNode(json);
-        return convert.js2xml(json, { compact: true, spaces: 2 });
-    } catch (error) {
-        console.error('Failed to clean XML page source, returning original.', error);
-        return xml; // Fallback to the original XML if cleaning fails
-    }
-}
-
-/**
- * Waits for any obvious loading indicators to disappear.  Many Android apps
- * display an indeterminate progress bar or spinner while fetching data.  If
- * these elements remain on the screen, capturing a page source too early can
- * return the loading overlay rather than the actual page.  This helper
- * attempts to locate a variety of common progress indicators and waits for
- * them to be removed from the UI.
- *
- * @param {object} browser - The WebdriverIO browser instance.
- * @param {number} timeout - Maximum time to wait for indicators to disappear.
- */
-async function waitForLoadingToDisappear(browser, platform = 'android', timeout = 15000) {
-    /*
-     * Waits for common loading spinners or progress indicators to disappear.
-     * On Android, this looks for ProgressBar widgets and resource IDs containing
-     * "progress" or "loading".  On iOS, it searches via the iOS class chain
-     * for activity and progress indicators.  If the element exists, it
-     * waits for it to disappear using the reverse option on waitForExist.
-     */
-    const start = Date.now();
-    if ((platform || 'android').toLowerCase() === 'ios') {
-        // iOS selectors via class chain
-        const iosChains = [
-            '**/XCUIElementTypeActivityIndicator',
-            '**/XCUIElementTypeProgressIndicator',
-        ];
-        for (const chain of iosChains) {
-            try {
-                const element = await browser.$(`-ios class chain:${chain}`);
-                if (await element.isExisting()) {
-                    await element.waitForExist({
-                        timeout: timeout - (Date.now() - start),
-                        reverse: true,
-                    });
-                }
-            } catch (err) {
-                // If not found or invalid selector, ignore and continue
-            }
-        }
-    } else {
-        // Android selectors: widget class or resource/text contains progress/loading
-        const selectors = [
-            'android.widget.ProgressBar',
-            '//*[contains(@resource-id, "progress")]',
-            '//*[contains(@resource-id, "loading")]',
-            '//*[contains(translate(@text, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "loading")]',
-        ];
-        for (const selector of selectors) {
-            try {
-                const element = await browser.$(selector);
-                if (await element.isExisting()) {
-                    await element.waitForExist({
-                        timeout: timeout - (Date.now() - start),
-                        reverse: true,
-                    });
-                }
-            } catch (err) {
-                // Ignore invalid selectors or not found errors
-            }
-        }
-    }
-}
-
-/**
- * Waits for the UI to reach a steady state by polling the page source until it
- * stops changing.  Capturing a page source while the UI is still updating
- * (e.g. during animation or data binding) can lead to transient XML trees.
- * This function fetches the page source repeatedly and returns once two
- * consecutive snapshots are identical, or after a timeout.
- *
- * @param {object} browser - The WebdriverIO browser instance.
- * @param {number} timeout - Maximum time to wait for stability.
- * @param {number} interval - Time in milliseconds between polls.
- * @returns {Promise<string>} The final page source.
- */
-async function waitForPageStability(browser, timeout = 30000, interval = 1000) {
-    //browser.pause(timeout); // Initial pause to allow any immediate changes
-    let lastSource = null;
-    const startTime = Date.now();
-    while (Date.now() - startTime < timeout) {
-        const currentSource = await browser.getPageSource();
-        if (lastSource && currentSource === lastSource) {
-            // The page source has not changed since the last poll; assume stable
-            return currentSource;
-        }
-        lastSource = currentSource;
-        await browser.pause(interval);
-    }
-    // Timeout reached; return the most recent source even if not stable
-    return lastSource;
-}
-
-/**
- * Uploads a mobile app package (APK or IPA) to BrowserStack and returns the app_url.
- * BrowserStack accepts both Android (.apk) and iOS (.ipa) binaries.  The caller
- * is responsible for ensuring only supported file types are provided.
- *
- * @param {string} filePath - The local path to the .apk or .ipa file.
- * @returns {Promise<string>} The app_url from BrowserStack.
- */
-async function uploadToBrowserStack(filePath) {
-    if (!BROWSERSTACK_USERNAME || !BROWSERSTACK_ACCESS_KEY) {
-        throw new Error(
-            'BrowserStack credentials are missing. Set BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY in your environment.'
-        );
-    }
-    console.log('Uploading app to BrowserStack...');
-
-    const form = new FormData();
-    form.append('file', fs.createReadStream(filePath));
-
-    const response = await fetch('https://api-cloud.browserstack.com/app-automate/upload', {
-        method: 'POST',
-        headers: {
-            Authorization:
-                'Basic ' + Buffer.from(`${BROWSERSTACK_USERNAME}:${BROWSERSTACK_ACCESS_KEY}`).toString('base64'),
-        },
-        body: form,
-    });
-
-    if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`BrowserStack upload failed: ${errorBody}`);
-    }
-
-    const data = await response.json();
-    console.log('BrowserStack upload successful. App URL:', data.app_url);
-    return data.app_url;
-}
+const { translateStepsToCommands } = require('../services/nlp_service');
+const { loadCache, saveCache, pomCache } = require('./pom_cache');
+const {
+    uploadToBrowserStack,
+    BROWSERSTACK_USERNAME,
+    BROWSERSTACK_ACCESS_KEY,
+} = require('./browserstack_utils');
+const {
+    extractElementName,
+    determineLocatorStrategy,
+    executeCommand,
+} = require('./command_utils');
 
 /**
  * Executes a series of structured commands on a mobile device using WebdriverIO and Appium.
@@ -484,32 +238,80 @@ async function executeTest(
 
                     const nextStep = allSteps[i + 1];
                     if (nextStep) {
-                        let nextSelector;
-                        try {
-                            const pageSource = await waitForPageStability(browser, 30000, 1000);
-                            const cleanedSource = cleanPageSource(pageSource);
-                            const nextCommandResp = await translateStepsToCommands(
-                                nextStep,
-                                cleanedSource,
-                                aiService,
-                            );
-                            const nextCommand = Array.isArray(nextCommandResp)
-                                ? nextCommandResp[0]
-                                : nextCommandResp;
-                            nextSelector = nextCommand && nextCommand.selector;
-                        } catch (err) {
-                            console.log('Error determining next step selector:', err.message);
+                        const elementName = extractElementName(nextStep);
+                        const prefix = `${currentPageName} - ${elementName} -`;
+                        let cacheKey = Object.keys(appSelectorCache).find((k) =>
+                            k.startsWith(prefix),
+                        );
+                        let finalSelector;
+
+                        // Try cached selector if available
+                        if (cacheKey) {
+                            const cachedSelector = appSelectorCache[cacheKey];
+                            try {
+                                const element = await findElement(cachedSelector);
+                                await element.waitForDisplayed({
+                                    timeout: 30000,
+                                    interval: 2000,
+                                });
+                                console.log('Next step element is now visible.');
+                                finalSelector = cachedSelector;
+                            } catch (err) {
+                                console.log(
+                                    'Cached selector failed. Removing from cache and retrying with AI.',
+                                    err.message,
+                                );
+                                delete appSelectorCache[cacheKey];
+                                saveCache();
+                            }
                         }
 
-                        if (nextSelector) {
+                        // If no valid cached selector, ask the AI
+                        if (!finalSelector) {
+                            let nextSelector;
                             try {
-                                const element = await findElement(nextSelector);
-                                await element.waitForDisplayed({ timeout: 30000, interval: 2000 });
-                                console.log('Next step element is now visible.');
-                            } catch (waitErr) {
-                                console.log('Failed waiting for next step element:', waitErr.message);
+                                const pageSource = await waitForPageStability(
+                                    browser,
+                                    30000,
+                                    1000,
+                                );
+                                const cleanedSource = cleanPageSource(pageSource);
+                                const nextCommandResp = await translateStepsToCommands(
+                                    nextStep,
+                                    cleanedSource,
+                                    aiService,
+                                );
+                                const nextCommand = Array.isArray(nextCommandResp)
+                                    ? nextCommandResp[0]
+                                    : nextCommandResp;
+                                nextSelector = nextCommand && nextCommand.selector;
+                            } catch (err) {
+                                console.log('Error determining next step selector:', err.message);
                             }
-                        } else {
+
+                            if (nextSelector) {
+                                try {
+                                    const element = await findElement(nextSelector);
+                                    await element.waitForDisplayed({
+                                        timeout: 30000,
+                                        interval: 2000,
+                                    });
+                                    console.log('Next step element is now visible.');
+                                    const strategy = determineLocatorStrategy(nextSelector);
+                                    cacheKey = `${currentPageName} - ${elementName} - ${strategy}`;
+                                    appSelectorCache[cacheKey] = nextSelector;
+                                    saveCache();
+                                    finalSelector = nextSelector;
+                                } catch (waitErr) {
+                                    console.log(
+                                        'Failed waiting for next step element:',
+                                        waitErr.message,
+                                    );
+                                }
+                            }
+                        }
+
+                        if (!finalSelector) {
                             console.log(
                                 'Could not derive selector for next step; falling back to 3 second pause.',
                             );
@@ -612,123 +414,7 @@ async function executeTest(
     return sessionId;
 }
 
-/**
- * Extracts the core element name from a natural language step.
- * e.g., "Click on 'Login' button" -> "'Login' button"
- * @param {string} step - The natural language step.
- * @returns {string} The extracted element name or the original step.
- */
-function extractElementName(step) {
-    // This regex looks for text in single quotes, or the last word if no quotes are found.
-    const quoteMatch = step.match(/'([^']+)'/);
-    if (quoteMatch && quoteMatch[1]) {
-        return `'${quoteMatch[1]}'`;
-    }
-    const words = step.trim().split(' ');
-    return words[words.length - 1];
-}
 
-/**
- * Helper function to execute a single command with robust selector strategies and self-healing.
- * @param {object} browser - The WebdriverIO browser instance.
- * @param {object} command - The command object to execute.
- * @param {string} aiService - The AI service to use for self-healing.
- * @param {object} appSelectorCache - The selector cache for the specific app being tested.
- * @param {string} currentPageName - The name of the current page for context-aware caching.
- * @param {string} originalStepText - The original raw text of the step.
- * @param {Function} findElement - The robust findElement helper function.
- */
-async function executeCommand(
-    browser,
-    command,
-    aiService,
-    appSelectorCache,
-    currentPageName,
-    originalStepText,
-    findElement,
-) {
-    // Normalize the command object in case the AI response is malformed
-    const safeCommand = command || {};
-    safeCommand.original_step = originalStepText;
-
-    const performAction = async (element) => {
-        if (safeCommand.command === 'click') {
-            await element.click();
-        } else if (safeCommand.command === 'setValue') {
-            await element.setValue(safeCommand.value);
-        }
-    };
-
-    // --- NEW, MORE ROBUST EXECUTION FLOW ---
-    const elementName = extractElementName(safeCommand.original_step);
-    const cacheKey = `${currentPageName} - ${elementName}`;
-    let element;
-    let finalSelector;
-
-    // 1. Try the cache first
-    if (appSelectorCache[cacheKey]) {
-        try {
-            const cachedSelector = appSelectorCache[cacheKey];
-            console.log(`Found cached selector for step "${cacheKey}": "${cachedSelector}"`);
-            element = await findElement(cachedSelector);
-            await element.waitForExist({ timeout: 5000 });
-            console.log('Successfully found element using cached selector.');
-            await performAction(element);
-            return; // Success, end of function
-        } catch (e) {
-            console.log('Cached selector failed. Deleting it and trying AI.');
-            delete appSelectorCache[cacheKey];
-            saveCache();
-        }
-    }
-
-    // 2. If cache fails or doesn't exist, try the AI's initial suggestion
-    try {
-        if (!safeCommand.selector) {
-            // This will make it jump directly to the catch block for self-healing
-            throw new Error('AI did not provide an initial selector.');
-        }
-        console.log(`Executing step with AI-provided selector: "${safeCommand.selector}"`);
-        element = await findElement(safeCommand.selector);
-        await element.waitForExist({ timeout: 10000 });
-        console.log('Found element successfully with AI-provided selector.');
-        finalSelector = safeCommand.selector;
-    } catch (initialError) {
-        // 3. If initial attempt fails, initiate self-healing
-        console.log(`${initialError.message} Initiating self-healing protocol.`);
-        try {
-            const pageSource = await browser.getPageSource();
-            const cleanedSourceForHealing = cleanPageSource(pageSource);
-            let newSelector = await findCorrectSelector(
-                safeCommand.original_step,
-                cleanedSourceForHealing,
-                aiService,
-            );
-            newSelector = newSelector.replace(/[`"']/g, '');
-
-            console.log(
-                `Self-healing: Retrying step with AI-suggested selector: "${newSelector}"`,
-            );
-            element = await findElement(newSelector);
-            await element.waitForExist({ timeout: 10000 });
-
-            console.log('Successfully found element with AI-healed selector.');
-            finalSelector = newSelector;
-        } catch (healingError) {
-            console.error('Self-healing also failed.', healingError);
-            throw new Error(
-                `Could not find element for step: "${safeCommand.original_step}"`,
-            );
-        }
-    }
-
-    // 4. Perform action and save to cache
-    await performAction(element);
-    if (finalSelector) {
-        appSelectorCache[cacheKey] = finalSelector;
-        saveCache();
-    }
-    await browser.pause(1000);
-}
-
-module.exports = { executeTest };
+module.exports = {
+    executeTest,
+};
