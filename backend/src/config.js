@@ -43,7 +43,8 @@ config.testsDir = resolveRelativePath(process.env.TESTS_DIR, defaultTestsDir);
 // Maximum upload size (in megabytes).  Values from process.env are
 // coerced to integers; invalid values fall back to 50MB.
 config.maxUploadMb = (() => {
-  const raw = process.env.MAX_UPLOAD_MB;
+  //const raw = process.env.MAX_UPLOAD_MB;
+  const raw = 100; // default to 100MB
   const parsed = parseInt(raw, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 50;
 })();
@@ -53,8 +54,8 @@ config.maxUploadMb = (() => {
 config.allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
 
 // Should uploaded APKs be cleaned up when a test completes?  Accept
-// 'true' or 'false' strings; any other value is treated as false.
-config.cleanUploadsAfterTest = (process.env.CLEAN_UPLOADS_AFTER_TEST || 'false').toLowerCase() === 'true';
+// 'true' or 'false' strings; any other value is treated as true.
+config.cleanUploadsAfterTest = (process.env.CLEAN_UPLOADS_AFTER_TEST || 'true').toLowerCase() === 'false';
 
 // AI service keys.  These are required for the NLP service to run.
 config.geminiApiKey = process.env.GEMINI_API_KEY;
