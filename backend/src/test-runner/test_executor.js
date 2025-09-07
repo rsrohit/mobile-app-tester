@@ -106,6 +106,7 @@ async function executeTest(
                     'appium:app': app_url,
                     'bstack:options': bstackOptions,
                     'appium:autoGrantPermissions': true,
+                    'appium:chromedriverAutodownload': true,
                 };
             }
         } else {
@@ -127,6 +128,7 @@ async function executeTest(
                 'appium:app': path.resolve(appPath),
                 'appium:noReset': false,
                 'appium:autoGrantPermissions': true,
+                'appium:chromedriverAutodownload': true,
             };
         }
 
