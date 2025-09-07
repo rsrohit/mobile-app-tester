@@ -19,6 +19,7 @@ const {
     determineLocatorStrategy,
     executeCommand,
 } = require('./command_utils');
+const { switchToWebview, switchToNative } = require('./context_utils');
 
 /**
  * Executes a series of structured commands on a mobile device using WebdriverIO and Appium.
@@ -105,6 +106,7 @@ async function executeTest(
                     'appium:app': app_url,
                     'bstack:options': bstackOptions,
                     'appium:autoGrantPermissions': true,
+                    'appium:chromedriverAutodownload': true,
                 };
             }
         } else {
@@ -126,6 +128,7 @@ async function executeTest(
                 'appium:app': path.resolve(appPath),
                 'appium:noReset': false,
                 'appium:autoGrantPermissions': true,
+                'appium:chromedriverAutodownload': true,
             };
         }
 
@@ -204,6 +207,7 @@ async function executeTest(
 
         let stepCounter = 0;
         let currentPageName = 'initial'; // Track the current page context
+        let activeContext = 'native'; // 'webview' or 'native'
 
         for (let i = 0; i < allSteps.length; i++) {
             const step = allSteps[i];
@@ -225,6 +229,24 @@ async function executeTest(
                 // --- NEW: Wait for element in the next step instead of a fixed pause ---
                 if (lowerCaseStep.includes('wait for app to load')) {
                     console.log(`--- Executing intelligent wait: "${step}" ---`);
+
+                    if (lowerCaseStep.includes('webview')) {
+                        console.log('Waiting for WebView context to be available...');
+                        await switchToWebview(browser);
+                        activeContext = 'webview';
+                        console.log('Active context set to WebView for subsequent steps.');
+                        io.to(socketId).emit('step-update', { stepNumber, status: 'passed' });
+                        continue;
+                    }
+
+                    if (lowerCaseStep.includes('native view') || lowerCaseStep.includes('native')) {
+                        console.log('Ensuring native context is active...');
+                        await switchToNative(browser);
+                        activeContext = 'native';
+                        console.log('Active context set to Native for subsequent steps.');
+                        io.to(socketId).emit('step-update', { stepNumber, status: 'passed' });
+                        continue;
+                    }
 
                     // Update page context if provided
                     const match = step.match(/wait for app to load the (.*) page/i);
@@ -326,6 +348,19 @@ async function executeTest(
                 console.log(
                     `--- Executing AI-driven step: "${step}" on page: "${currentPageName}" ---`,
                 );
+                if (activeContext === 'webview') {
+                    try {
+                        await switchToWebview(browser);
+                    } catch (err) {
+                        console.log(
+                            'WEBVIEW context not available, switching to native and updating active context.',
+                        );
+                        await switchToNative(browser);
+                        activeContext = 'native';
+                    }
+                } else {
+                    await switchToNative(browser);
+                }
                 const pageSource = await browser.getPageSource();
                 const cleanedSource = cleanPageSource(pageSource);
 
@@ -362,6 +397,19 @@ async function executeTest(
                     step,
                     findElement,
                 );
+                if (activeContext === 'webview') {
+                    try {
+                        await switchToWebview(browser, 5000);
+                    } catch (err) {
+                        console.log(
+                            'WebView context disappeared, switching to native and updating active context.',
+                        );
+                        await switchToNative(browser);
+                        activeContext = 'native';
+                    }
+                } else {
+                    await switchToNative(browser);
+                }
                 io.to(socketId).emit('step-update', { stepNumber, status: 'passed' });
 
             } catch (stepError) {
