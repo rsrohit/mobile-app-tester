@@ -22,34 +22,42 @@ const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
  * Translates a string of natural language test steps into a structured
  * JSON array of commands using the selected AI service.
  * @param {string} rawSteps - The user-provided test steps.
- * @param {string} pageSource - The initial XML page source from the app.
+ * @param {string} pageSource - The initial page source from the app.
  * @param {string} aiService - The selected AI service ('gemini' or 'deepseek').
+ * @param {('native'|'web')} [context='native'] - The context to generate selectors for.
  * @returns {Promise<any[]>} A promise that resolves to an array of command objects.
  */
-async function translateStepsToCommands(rawSteps, pageSource, aiService) {
-    const prompt = `
-        You are an expert test automation assistant. Your task is to convert a list of user-provided, natural language test steps into a structured JSON array.
-        Use the provided XML page source as the primary context to determine the most accurate and reliable selectors for each element for the entire test flow.
-
-        The JSON objects must have the following properties:
-        - "command": (String) The action to perform. Supported commands are: "click", "setValue", "verifyVisible", "launchApp".
-        - "selector": (String) The best selector for the target UI element based on the XML source. Prefer accessibility IDs.
+async function translateStepsToCommands(rawSteps, pageSource, aiService, context = 'native') {
+    const sourceType = context === 'web' ? 'HTML' : 'XML';
+    const codeLang = context === 'web' ? 'html' : 'xml';
+    const selectorInstructions =
+        context === 'web'
+            ? `- "selector": (String) The best **CSS selector** for the target DOM element based on the HTML source. Prefer unique IDs (e.g., '#id') or class selectors (e.g., '.class'). Use XPath only if no reliable CSS selector exists.`
+            : `- "selector": (String) The best selector for the target UI element based on the XML source. Prefer accessibility IDs.
           * For **Android**, prioritize 'resource-id', then 'content-desc'.
           * For **iOS**, prioritize the element's 'name' or 'label' attributes.
           * When using an accessibility identifier, prefix the selector with '~'.
-          * Use a precise XPath only if no stable accessibility identifier or resource-id is available.
+          * Use a precise XPath only if no stable accessibility identifier or resource-id is available.`;
+
+    const prompt = `
+        You are an expert test automation assistant. Your task is to convert a list of user-provided, natural language test steps into a structured JSON array.
+        Use the provided ${sourceType} page source as the primary context to determine the most accurate and reliable selectors for each element for the entire test flow.
+
+        The JSON objects must have the following properties:
+        - "command": (String) The action to perform. Supported commands are: "click", "setValue", "verifyVisible", "launchApp".
+        ${selectorInstructions}
         - "value": (String) The text to be entered into a field.
         - "original_step": (String) The original, unmodified natural language step.
 
         CONTEXT:
         ---
-        **Initial Page XML Source:**
-        \`\`\`xml
+        **Initial Page ${sourceType} Source:**
+        \`\`\`${codeLang}
         ${pageSource}
         \`\`\`
         ---
 
-        Now, based on the XML source above, please convert the following user-provided steps into the specified JSON format. Do not include any explanations, just the raw JSON array.
+        Now, based on the ${sourceType} source above, please convert the following user-provided steps into the specified JSON format. Do not include any explanations, just the raw JSON array.
 
         **User Steps:**
         ---

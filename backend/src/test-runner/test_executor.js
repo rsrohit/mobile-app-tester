@@ -250,6 +250,7 @@ async function executeTest(
                                     nextStep,
                                     cleanedSource,
                                     aiService,
+                                    activeContext === 'webview' ? 'web' : 'native',
                                 );
                                 const nextCommand = Array.isArray(nextCommandResp)
                                     ? nextCommandResp[0]
@@ -320,6 +321,7 @@ async function executeTest(
                     step,
                     cleanedSource,
                     aiService,
+                    activeContext === 'webview' ? 'web' : 'native',
                 );
                 console.log('Received context-aware command:', commandResponse);
 
