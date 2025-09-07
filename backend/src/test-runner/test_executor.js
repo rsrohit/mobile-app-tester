@@ -18,6 +18,7 @@ const {
     extractElementName,
     determineLocatorStrategy,
     executeCommand,
+    createFindElement,
 } = require('./command_utils');
 
 /**
@@ -145,57 +146,7 @@ async function executeTest(
         const appSelectorCache = pomCache[appId];
 
         // --- NEW: Define findElement at a higher scope ---
-        const findElement = async (selector) => {
-            if (!selector) throw new Error('Selector is null or undefined.');
-
-            if (selector.toLowerCase().startsWith('resource-id:')) {
-                const resourceId = selector.substring(12);
-                console.log(`Attempting to find by parsed Resource ID: ${resourceId}`);
-                return await browser.$(`id:${resourceId}`);
-            }
-            if (selector.toLowerCase().startsWith('resource-id=')) {
-                const resourceId = selector.substring(12);
-                console.log(`Attempting to find by parsed Resource ID: ${resourceId}`);
-                return await browser.$(`id:${resourceId}`);
-            }
-            if (selector.toLowerCase().startsWith('new uiselector')) {
-                let sanitizedSelector = selector;
-                const resourceIdMatch = selector.match(/resourceId\(([^)]+)\)/);
-                if (resourceIdMatch && !resourceIdMatch[1].startsWith('"')) {
-                    sanitizedSelector = selector.replace(resourceIdMatch[1], `"${resourceIdMatch[1]}"`);
-                }
-                console.log(`Attempting to find by UiSelector: ${sanitizedSelector}`);
-                return await browser.$(`android=${sanitizedSelector}`);
-            }
-            if (selector.startsWith('~')) {
-                console.log(`Attempting to find by Accessibility ID: ${selector}`);
-                return await browser.$(selector);
-            }
-            if (selector.toLowerCase().startsWith('name=')) {
-                const name = selector.substring(5);
-                console.log(`Attempting to find by Name: ${name}`);
-                return await browser.$(`~${name}`);
-            }
-            if (selector.toLowerCase().startsWith('label=')) {
-                const label = selector.substring(6);
-                console.log(`Attempting to find by Label: ${label}`);
-                return await browser.$(`//*[@label="${label}"]`);
-            }
-            if (selector.includes(':id/')) {
-                console.log(`Attempting to find by Resource ID: ${selector}`);
-                return await browser.$(`id:${selector}`);
-            }
-            console.log(
-                `Attempting to find by flexible XPath for text: "${selector}"`,
-            );
-            const lowered = selector.toLowerCase();
-            const xpathSelector =
-                `//*[contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
-                `or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
-                `or contains(translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
-                `or contains(translate(@label, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}")]`;
-            return await browser.$(xpathSelector);
-        };
+        const findElement = createFindElement(browser);
 
         // --- PAGE-AWARE GROUPING LOGIC ---
         console.log('Starting page-aware grouped test execution...');
