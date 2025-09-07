@@ -205,6 +205,7 @@ async function executeTest(
 
         let stepCounter = 0;
         let currentPageName = 'initial'; // Track the current page context
+        let activeContext = 'native'; // 'webview' or 'native'
 
         for (let i = 0; i < allSteps.length; i++) {
             const step = allSteps[i];
@@ -230,6 +231,8 @@ async function executeTest(
                     if (lowerCaseStep.includes('webview')) {
                         console.log('Waiting for WebView context to be available...');
                         await switchToWebview(browser);
+                        activeContext = 'webview';
+                        console.log('Active context set to WebView for subsequent steps.');
                         io.to(socketId).emit('step-update', { stepNumber, status: 'passed' });
                         continue;
                     }
@@ -237,6 +240,8 @@ async function executeTest(
                     if (lowerCaseStep.includes('native view') || lowerCaseStep.includes('native')) {
                         console.log('Ensuring native context is active...');
                         await switchToNative(browser);
+                        activeContext = 'native';
+                        console.log('Active context set to Native for subsequent steps.');
                         io.to(socketId).emit('step-update', { stepNumber, status: 'passed' });
                         continue;
                     }
@@ -341,12 +346,17 @@ async function executeTest(
                 console.log(
                     `--- Executing AI-driven step: "${step}" on page: "${currentPageName}" ---`,
                 );
-                try {
-                    await switchToWebview(browser);
-                } catch (err) {
-                    console.log(
-                        'WEBVIEW context not available, reverting to native context.',
-                    );
+                if (activeContext === 'webview') {
+                    try {
+                        await switchToWebview(browser);
+                    } catch (err) {
+                        console.log(
+                            'WEBVIEW context not available, switching to native and updating active context.',
+                        );
+                        await switchToNative(browser);
+                        activeContext = 'native';
+                    }
+                } else {
                     await switchToNative(browser);
                 }
                 const pageSource = await browser.getPageSource();
@@ -385,10 +395,17 @@ async function executeTest(
                     step,
                     findElement,
                 );
-                try {
-                    await switchToWebview(browser, 5000);
-                } catch (err) {
-                    console.log('WebView context disappeared, switching to native.');
+                if (activeContext === 'webview') {
+                    try {
+                        await switchToWebview(browser, 5000);
+                    } catch (err) {
+                        console.log(
+                            'WebView context disappeared, switching to native and updating active context.',
+                        );
+                        await switchToNative(browser);
+                        activeContext = 'native';
+                    }
+                } else {
                     await switchToNative(browser);
                 }
                 io.to(socketId).emit('step-update', { stepNumber, status: 'passed' });
