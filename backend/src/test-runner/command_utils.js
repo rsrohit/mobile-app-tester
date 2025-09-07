@@ -34,6 +34,103 @@ function determineLocatorStrategy(selector = '') {
 }
 
 /**
+ * Creates a robust element finder bound to a browser instance. Supports
+ * multiple selector strategies and intelligently handles WebView contexts.
+ * When a selector starts with "css=", the prefix is stripped and treated as a
+ * CSS selector. In a WEBVIEW context, mobile-specific fallbacks are skipped
+ * entirely and the raw selector is passed through to WebdriverIO allowing
+ * native CSS/XPath queries.
+ *
+ * @param {object} browser - The WebdriverIO browser instance.
+ * @returns {Function} findElement - Function that locates elements given a selector.
+ */
+function createFindElement(browser) {
+    return async function findElement(selector) {
+        if (!selector) throw new Error('Selector is null or undefined.');
+
+        let context = '';
+        try {
+            context = await browser.getContext();
+        } catch (e) {
+            // getContext may not exist in non-mobile sessions; ignore.
+        }
+        const inWebView = context && context.startsWith('WEBVIEW');
+
+        // Support explicit css= prefix regardless of context
+        if (selector.toLowerCase().startsWith('css=')) {
+            const cssSelector = selector.slice(4);
+            const prefix = inWebView
+                ? 'WEBVIEW context: using CSS selector'
+                : 'Attempting to find by CSS selector';
+            console.log(`${prefix}: ${cssSelector}`);
+            return browser.$(cssSelector);
+        }
+
+        if (inWebView) {
+            const strategy =
+                selector.startsWith('//') || selector.startsWith('(')
+                    ? 'XPath'
+                    : 'CSS';
+            console.log(
+                `WEBVIEW context: using ${strategy} selector: ${selector}`,
+            );
+            return browser.$(selector);
+        }
+
+        if (selector.toLowerCase().startsWith('resource-id:')) {
+            const resourceId = selector.substring(12);
+            console.log(`Attempting to find by parsed Resource ID: ${resourceId}`);
+            return await browser.$(`id:${resourceId}`);
+        }
+        if (selector.toLowerCase().startsWith('resource-id=')) {
+            const resourceId = selector.substring(12);
+            console.log(`Attempting to find by parsed Resource ID: ${resourceId}`);
+            return await browser.$(`id:${resourceId}`);
+        }
+        if (selector.toLowerCase().startsWith('new uiselector')) {
+            let sanitizedSelector = selector;
+            const resourceIdMatch = selector.match(/resourceId\(([^)]+)\)/);
+            if (resourceIdMatch && !resourceIdMatch[1].startsWith('"')) {
+                sanitizedSelector = selector.replace(
+                    resourceIdMatch[1],
+                    `"${resourceIdMatch[1]}"`,
+                );
+            }
+            console.log(`Attempting to find by UiSelector: ${sanitizedSelector}`);
+            return await browser.$(`android=${sanitizedSelector}`);
+        }
+        if (selector.startsWith('~')) {
+            console.log(`Attempting to find by Accessibility ID: ${selector}`);
+            return await browser.$(selector);
+        }
+        if (selector.toLowerCase().startsWith('name=')) {
+            const name = selector.substring(5);
+            console.log(`Attempting to find by Name: ${name}`);
+            return await browser.$(`~${name}`);
+        }
+        if (selector.toLowerCase().startsWith('label=')) {
+            const label = selector.substring(6);
+            console.log(`Attempting to find by Label: ${label}`);
+            return await browser.$(`//*[@label="${label}"]`);
+        }
+        if (selector.includes(':id/')) {
+            console.log(`Attempting to find by Resource ID: ${selector}`);
+            return await browser.$(`id:${selector}`);
+        }
+        console.log(
+            `Attempting to find by flexible XPath for text: "${selector}"`,
+        );
+        const lowered = selector.toLowerCase();
+        const xpathSelector =
+            `//*[contains(translate(@text, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
+            `or contains(translate(@content-desc, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
+            `or contains(translate(@name, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}") ` +
+            `or contains(translate(@label, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "${lowered}")]`;
+        return await browser.$(xpathSelector);
+    };
+}
+
+/**
  * Helper function to execute a single command with robust selector strategies and self-healing.
  * @param {object} browser - The WebdriverIO browser instance.
  * @param {object} command - The command object to execute.
@@ -146,4 +243,5 @@ module.exports = {
     extractElementName,
     determineLocatorStrategy,
     executeCommand,
+    createFindElement,
 };
