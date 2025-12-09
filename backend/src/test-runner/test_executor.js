@@ -48,6 +48,7 @@ async function executeTest(
     platformVersion = '',
 ) {
     let browser;
+    let sessionId = null;
     // Normalise the platform once so that helper functions can use it.  This
     // variable persists through the lifetime of the test execution.
     const targetPlatform = (platform || 'android').toLowerCase();
@@ -135,7 +136,9 @@ async function executeTest(
 
         console.log('Attempting to start remote session...');
         browser = await remote({ ...appiumOptions, capabilities });
+        sessionId = browser.sessionId;
         console.log('Remote session started successfully.');
+        console.log(`BrowserStack session ID: ${sessionId}`);
 
         // --- NEW: Identify the app and prepare its specific cache ---
         // Use appPackage for Android or bundleId for iOS when caching selectors.
@@ -409,6 +412,7 @@ async function executeTest(
             console.error('Failed to delete uploaded app file:', fileCleanupError);
         }
      }
+    return sessionId;
 }
 
 
