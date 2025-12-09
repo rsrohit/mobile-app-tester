@@ -19,12 +19,21 @@ const apiRoutes = require('./api/routes');
 const app = express();
 const server = http.createServer(app);
 
+// Normalize allowed origins into an array for reuse across CORS, Socket.IO
+// and CSP configuration.  When a wildcard is provided we pass it through so
+// localhost, LAN IPs, and forwarded hostnames can reach the API without
+// hard‑coding the hostname.
+const allowedOrigins = config.allowedOrigin === '*'
+  ? '*'
+  : config.allowedOrigin
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean);
+
 // Configure Socket.IO with CORS reflecting our allowed origins
 const io = new Server(server, {
   cors: {
-    origin: config.allowedOrigin === '*'
-      ? '*'
-      : config.allowedOrigin.split(',').map((o) => o.trim()),
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
   },
 });
@@ -64,7 +73,27 @@ app.use(
         // Specify where connections (XHR/WebSocket) can be made.  We allow our
         // own server and WebSocket endpoint.  Socket.IO will use these to
         // communicate between the front‑end and back‑end.
-        'connect-src': ["'self'", 'http://localhost:3000', 'ws://localhost:3000'],
+        'connect-src': (() => {
+          if (allowedOrigins === '*') {
+            return ["'self'", '*'];
+          }
+
+          const connectSources = allowedOrigins
+            .flatMap((origin) => {
+              try {
+                const parsed = new URL(origin);
+                const wsScheme = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+                return [origin, `${wsScheme}//${parsed.host}`];
+              } catch (err) {
+                // If the origin cannot be parsed as a URL, fall back to the raw value
+                return [origin];
+              }
+            })
+            .filter(Boolean);
+
+          // Ensure we always allow connections back to the served domain
+          return Array.from(new Set(["'self'", ...connectSources]));
+        })(),
         // Default fallback for other resource types.
         'default-src': ["'self'"],
       },
@@ -89,9 +118,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || config.allowedOrigin === '*') return callback(null, true);
-      const allowed = config.allowedOrigin.split(',').map((o) => o.trim());
-      return allowed.includes(origin) ? callback(null, true) : callback(new Error('Not allowed by CORS'));
+      if (!origin || allowedOrigins === '*') return callback(null, true);
+      return allowedOrigins.includes(origin) ? callback(null, true) : callback(new Error('Not allowed by CORS'));
     },
     methods: ['GET', 'POST'],
     credentials: false,

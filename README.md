@@ -63,6 +63,76 @@ An intelligent, AI-powered tool for automating mobile application testing. This 
 
 Follow these steps to set up the project on your local machine.
 
+### Deploy with Docker (recommended for servers)
+
+The repository includes a `Dockerfile` and `docker-compose.yml` so you can run the app on your Ubuntu server at `192.168.1.17` without installing Node.js globally. The container serves both the backend API and the static frontend on port `3000`.
+
+#### One-time server setup (Ubuntu)
+
+Run the following commands directly on `192.168.1.17`:
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl git
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker $USER  # log out/in once to apply
+```
+
+#### Deploy the stack
+
+1. Clone or copy the repository onto the server and move into it:
+
+   ```bash
+   git clone <your-repository-url>
+   cd mobile-app-tester
+   ```
+
+2. Create an environment file for secrets:
+
+   ```bash
+   cp backend/.env.example backend/.env
+   nano backend/.env
+   ```
+
+   Set your AI keys and allow your LAN origin, for example:
+
+   ```bash
+   GEMINI_API_KEY=your-gemini-key
+   DEEPSEEK_API_KEY=your-deepseek-key
+   ALLOWED_ORIGIN=http://192.168.1.17:3000
+   ```
+
+3. Build and start the services:
+
+   ```bash
+   docker compose up -d
+   ```
+
+   The `./uploads` and `./tests` directories are bind-mounted so files persist on the host.
+
+4. Verify the containers are healthy:
+
+   ```bash
+   docker compose ps
+   docker compose logs -f
+   ```
+
+5. Open **http://192.168.1.17:3000** from your browser to access the UI.
+
+#### Updating the deployment
+
+To pull new code and rebuild the container later:
+
+```bash
+docker compose down
+git pull
+docker compose up -d --build
+```
+
 ### 1. Prerequisites
 
 Make sure you have the following software installed:
