@@ -1,0 +1,20 @@
+version: '3.9'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - backend/.env
+    environment:
+      # Fallbacks if values are missing from backend/.env
+      - PORT=3000
+      - FRONTEND_PATH=/app/frontend
+      - UPLOAD_DIR=/app/uploads
+      - TESTS_DIR=/app/tests
+      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-http://192.168.1.17:3000}
+    volumes:
+      - ./uploads:/app/uploads
+      - ./tests:/app/tests
+    restart: unless-stopped
