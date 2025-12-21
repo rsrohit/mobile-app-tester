@@ -6,13 +6,15 @@ An intelligent, AI-powered tool for automating mobile application testing. This 
 
 ## Features
 
--   **Natural Language Processing (NLP):** Write test steps in simple, everyday English.
--   **Multi-AI Support:** Choose between **Gemini** and **Deepseek** to translate your test steps, providing flexibility and avoiding rate limits.
--   **Context-Aware Selector Generation:** The tool analyzes the app's current screen layout (XML source) to generate the most accurate and reliable element selectors.
--   **Page-Aware Test Execution:** Intelligently groups test steps by page, refreshing its context after page transitions to ensure accuracy.
--   **Self-Healing Tests:** If an element isn't found, the tool automatically uses the AI and the current page source to find the correct selector and retry the step.
--   **Real-time Web Interface:** A clean, modern UI provides live feedback on each step of the test execution.
--   **Android and iOS app testing support**
+-   **Natural Language Steps:** Write test steps in plain English and translate them into executable commands.
+-   **Multi-AI Support:** Choose between **Gemini** and **Deepseek** for step translation and selector assistance.
+-   **Context-Aware Selector Generation:** Uses XML (native) or HTML (webview) sources to generate resilient selectors.
+-   **Native + WebView Context Switching:** Explicitly switch between native and web contexts during a test run.
+-   **Page-Aware Test Execution:** Groups steps by page and waits for stable page indicators after transitions.
+-   **Self-Healing Selectors:** If an element isn't found, the system re-queries the AI using the current page source.
+-   **Real-time Web Interface:** Live progress updates for each step via Socket.IO.
+-   **Local + BrowserStack Runs:** Run Android locally or execute Android/iOS on BrowserStack with uploaded app binaries.
+-   **Reusable Test Library:** Save/load JSON or CSV test definitions from the `tests/` directory.
 
 ---
 
@@ -36,22 +38,35 @@ An intelligent, AI-powered tool for automating mobile application testing. This 
 |   |-- 📂 src/
 |   |   |-- 📂 api/
 |   |   |   |-- routes.js
+|   |   |-- config.js
 |   |   |-- 📂 services/
 |   |   |   |-- nlp\_service.js
+|   |   |   |-- test_service.js
 |   |   |-- 📂 test-runner/
-|   |   |   |-- test\_executor.js
+|   |   |   |-- browserstack_utils.js
+|   |   |   |-- command_utils.js
+|   |   |   |-- context_utils.js
+|   |   |   |-- page_utils.js
+|   |   |   |-- pom_cache.js
+|   |   |   |-- test_executor.js
 |   |   |-- app.js
 |   |-- package.json
 |   |-- pom_android.json
 |   |-- pom_ios.json
+|   |-- 📂 scripts/
+|   |   |-- run-browserstack-tests.js
+|   |-- 📂 tests/
+|   |   |-- execute_command.test.js
+|   |   |-- locator_strategy.test.js
+|   |   |-- test_executor.test.js
 |
 |-- 📂 frontend/
 |   |-- index.html
 |
-|-- 📂 └── tests
+|-- 📂 tests/
 |   |-- sample_login.json
 |
-|-- 📂 uploads/
+|-- 📂 uploads/ (created at runtime)
 |
 |-- README.md
 
@@ -94,15 +109,16 @@ sudo usermod -aG docker $USER  # log out/in once to apply
 2. Create an environment file for secrets:
 
    ```bash
-   cp backend/.env.example backend/.env
    nano backend/.env
    ```
 
-   Set your AI keys and allow your LAN origin, for example:
+   Set your AI keys, BrowserStack credentials (optional), and allow your LAN origin, for example:
 
    ```bash
    GEMINI_API_KEY=your-gemini-key
    DEEPSEEK_API_KEY=your-deepseek-key
+   BROWSERSTACK_USERNAME=your-browserstack-username
+   BROWSERSTACK_ACCESS_KEY=your-browserstack-access-key
    ALLOWED_ORIGIN=http://192.168.1.17:3000
    ```
 
@@ -233,7 +249,7 @@ You can also place these values in a `.env` file in the `backend` directory.
       - Open your web browser and go to **http://localhost:3000**.
       - Select your desired AI service.
       - Upload your `.apk` file.
-      - nter your test steps in plain English. When referencing UI elements, enclose the element name in `*` (for example, `Tap on *Login* button`).
+      - Enter your test steps in plain English. When referencing UI elements, enclose the element name in `*` (for example, `Tap on *Login* button`).
       - Click **"Run Test"** and watch the magic happen\!
 
 -----
